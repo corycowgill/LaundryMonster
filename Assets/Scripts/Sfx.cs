@@ -54,6 +54,9 @@ namespace LaundryMonster
         /// <summary>The dryer catches. Low, long and bad.</summary>
         public static AudioClip Fire => Sweep("fire", 190f, 42f, 0.95f, 0.5f, true);
 
+        /// <summary>A soft footfall. Quiet on purpose - it plays twice a second.</summary>
+        public static AudioClip Step => Sweep("step", 190f, 110f, 0.055f, 0.5f);
+
         /// <summary>Lint trap emptied. Quietly satisfying, never triumphant - it fixed nothing yet.</summary>
         public static AudioClip LintClear => Sequence("lintClear", new[] { 440f, 320f }, 0.07f, 0.22f, false);
 

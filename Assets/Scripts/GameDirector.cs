@@ -363,13 +363,20 @@ namespace LaundryMonster
 
             float f = Monster / Tuning.MonsterMax;
             float s = Mathf.Lerp(0.45f, 2.0f, f);
-            MonsterPile.localScale = new Vector3(s, s, s);
+
+            // Hand the size to the animator, which eases and adds the wobble. Setting
+            // localScale here would fight it every frame.
+            var anim = MonsterPile.GetComponent<MonsterAnimator>();
+            if (anim != null) anim.TargetScale = s;
+            else MonsterPile.localScale = new Vector3(s, s, s);
 
             if (_monsterMat != null)
             {
+                // Keep it bright. It is a silly laundry blob, not a horror; size and
+                // wobble carry the threat, not a drain of colour.
                 _monsterMat.color = Color.Lerp(
                     Color.white,
-                    new Color(0.85f, 0.42f, 0.38f), f);
+                    new Color(1f, 0.92f, 0.88f), f);
             }
         }
     }

@@ -109,12 +109,14 @@ public static class RoomBuilder
         }
         monsterRoot.transform.position = new Vector3(-6.6f, 0f, 1.6f);
         monsterRoot.transform.localScale = Vector3.one * 0.45f;
+        monsterRoot.AddComponent<MonsterAnimator>();
 
         // ---- player ----
         var player = new GameObject("Player");
         player.transform.position = new Vector3(0f, 0f, -2f);
         BuildPlayer(player.transform, shirtMat, skinMat);
         player.AddComponent<PlayerController>();
+        player.AddComponent<CharacterAnimator>();
 
         // ---- lighting ----
         var lighting = new GameObject("Lighting");
