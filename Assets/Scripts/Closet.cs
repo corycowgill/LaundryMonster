@@ -19,6 +19,7 @@ namespace LaundryMonster
 
         public override void Interact(PlayerController p)
         {
+            int n = 0;
             for (int i = p.Carried.Count - 1; i >= 0; i--)
             {
                 var g = p.Carried[i];
@@ -26,6 +27,8 @@ namespace LaundryMonster
 
                 p.Release(g);
                 GameDirector.Instance?.Deliver(g);
+                SfxPlayer.Play(Sfx.Deliver, 1f, 1f + n * 0.12f);
+                n++;
                 Destroy(g.gameObject);
             }
         }

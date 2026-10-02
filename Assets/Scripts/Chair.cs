@@ -34,6 +34,7 @@ namespace LaundryMonster
                     Pile.Add(g);
                     g.DecayMultiplier = Tuning.ChairDecayMultiplier;
                 }
+                SfxPlayer.Play(Sfx.Drop, 0.9f);
                 Restack();
                 return;
             }
@@ -43,6 +44,7 @@ namespace LaundryMonster
                 var g = Pile[Pile.Count - 1];
                 Pile.RemoveAt(Pile.Count - 1);
                 p.Take(g);
+                SfxPlayer.Play(Sfx.PickUp, 0.8f);
             }
             Restack();
         }

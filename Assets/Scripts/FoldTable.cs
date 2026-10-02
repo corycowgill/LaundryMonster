@@ -38,6 +38,7 @@ namespace LaundryMonster
             var g = FirstFoldable(p);
             if (g == null) return;
 
+            SfxPlayer.Play(Sfx.Fold, 1f, g.State == GarmentState.Wrinkled ? 0.75f : 1f);
             g.FoldedWrinkled = g.State == GarmentState.Wrinkled;
             g.SetState(GarmentState.Folded);
             g.DecayMultiplier = 0f; // folded laundry is safe. briefly.

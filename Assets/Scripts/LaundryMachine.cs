@@ -16,12 +16,22 @@ namespace LaundryMonster
         float _cycleLength;
 
         ProgressBar _bar;
+        AudioSource _audio;
+        float _nagTimer;
+        const float NagInterval = 2.6f;
 
         public override string Label => MachineMode == Mode.Washer ? "Washer" : "Dryer";
 
         void Awake()
         {
             _bar = ProgressBar.Attach(transform, new Vector3(0f, 1.5f, 0f));
+            _audio = SfxPlayer.Spatial(gameObject);
+        }
+
+        void Nag(AudioClip clip, float volume)
+        {
+            if (_audio == null) SfxPlayer.Play(clip, volume);
+            else _audio.PlayOneShot(clip, volume);
         }
 
         bool Accepts(Garment g)
@@ -145,6 +155,7 @@ namespace LaundryMonster
             foreach (var g in p.Carried)
                 if (g.HasPockets) g.PocketsChecked = true;
 
+            SfxPlayer.Play(Sfx.Safe, 0.9f);
             GameDirector.Instance?.Flash("pockets checked", new Color(0.6f, 0.85f, 1f));
             Interact(p);   // then load as normal
         }
@@ -179,6 +190,7 @@ namespace LaundryMonster
                 {
                     // A tissue shreds over everything. Whole load back to dirty.
                     foreach (var c in Contents) c.SetState(GarmentState.Dirty);
+                    SfxPlayer.Play(Sfx.Disaster, 1f);
                     dir?.Flash("A TISSUE. It is everywhere. Re-wash the whole load.",
                                new Color(1f, 0.85f, 0.4f));
                     return false;
@@ -189,6 +201,7 @@ namespace LaundryMonster
                 {
                     float lost = dir != null ? dir.Score * Tuning.WalletScorePenalty : 0f;
                     if (dir != null) dir.Score -= lost;
+                    SfxPlayer.Play(Sfx.Disaster, 1f);
                     dir?.Flash("Your WALLET was in there. -" + lost.ToString("0.#") + " score.",
                                new Color(1f, 0.6f, 0.3f));
                     continue;
@@ -198,6 +211,7 @@ namespace LaundryMonster
                 if (r < cut)
                 {
                     RuinSome(Tuning.ChapstickRuins);
+                    SfxPlayer.Play(Sfx.Disaster, 1f);
                     dir?.Flash("CHAPSTICK. Grease on " + Tuning.ChapstickRuins + " garments.",
                                new Color(1f, 0.5f, 0.3f));
                     return Contents.Count > 0;
@@ -207,6 +221,7 @@ namespace LaundryMonster
                 if (r < cut)
                 {
                     RuinSome(Contents.Count);
+                    SfxPlayer.Play(Sfx.Disaster, 1f);
                     dir?.Flash("A CRAYON. The entire load is ruined.", new Color(1f, 0.35f, 0.3f));
                     return false;
                 }
@@ -214,7 +229,8 @@ namespace LaundryMonster
                 // AirPods: the only permanent loss in the game.
                 var player = Object.FindAnyObjectByType<PlayerController>();
                 if (player != null) player.CarryPenalty++;
-                dir?.Flash("YOUR AIRPODS. Gone. You can carry one less for the rest of the run.",
+                SfxPlayer.Play(Sfx.Disaster, 1f);
+                    dir?.Flash("YOUR AIRPODS. Gone. You can carry one less for the rest of the run.",
                            new Color(1f, 0.3f, 0.45f));
             }
 
@@ -252,6 +268,7 @@ namespace LaundryMonster
 
             Running = true;
             Timer = 0f;
+            Nag(Sfx.Start, 0.7f);
             foreach (var g in Contents) g.DecayMultiplier = 0f; // nothing decays mid-cycle
         }
 
@@ -269,6 +286,19 @@ namespace LaundryMonster
                         g.SetState(OutputState);
                         g.DecayMultiplier = 1f; // the clock starts the moment the cycle ends
                     }
+                    Nag(MachineMode == Mode.Washer ? Sfx.WasherDone : Sfx.DryerDone, 1f);
+                    _nagTimer = NagInterval;
+                }
+            }
+
+            // A finished machine keeps asking. This is the pressure loop.
+            if (HasFinishedLoad)
+            {
+                _nagTimer -= Time.deltaTime;
+                if (_nagTimer <= 0f)
+                {
+                    Nag(MachineMode == Mode.Washer ? Sfx.WasherDone : Sfx.DryerDone, 0.8f);
+                    _nagTimer = NagInterval;
                 }
             }
             UpdateBar();

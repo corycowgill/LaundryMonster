@@ -25,7 +25,7 @@ Verified in Play mode, not assumed.
 | lint traps | not built |
 | socks / the Sock Void | not built |
 | darks/whites separation | not built |
-| audio | not built - and it is doing none of the work it should |
+| audio | working - synthesised in code, no sound files |
 | art | greybox primitives, not the low-poly look |
 
 Controls: WASD/arrows or left stick to move. E to interact - tap and hold do

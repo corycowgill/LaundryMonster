@@ -156,27 +156,62 @@ namespace LaundryMonster
                 _spawnIndex++;
             }
 
+            // Tick every clock, and find the one closest to expiring.
+            float mostUrgent = float.MaxValue;
             for (int i = _all.Count - 1; i >= 0; i--)
             {
                 var g = _all[i];
                 if (g == null) { _all.RemoveAt(i); continue; }
                 g.Tick(dt);
+
+                if (g.IsDecaying && g.DecayMultiplier > 0f)
+                {
+                    // Seconds of real time left, which The Chair halves.
+                    float left = (g.DecayLimit - g.StateTimer) / g.DecayMultiplier;
+                    if (left < mostUrgent) mostUrgent = left;
+                }
             }
 
+            TickWarning(mostUrgent, dt);
             UpdateMonsterVisual();
 
             if (Monster >= Tuning.MonsterMax)
             {
                 CurrentPhase = Phase.RunOver;
+                SfxPlayer.Play(Sfx.RunOver, 1f);
                 return;
             }
 
             if (DayTimer >= DayLength) EndDay();
         }
 
+        /// <summary>
+        /// A quickening tick for whatever is closest to spoiling. Rate and pitch both
+        /// rise as it runs out, so you can hear trouble without looking for it.
+        /// </summary>
+        const float TickWindow = 6f;
+        float _tickTimer;
+
+        void TickWarning(float secondsLeft, float dt)
+        {
+            if (secondsLeft >= TickWindow || secondsLeft <= 0f)
+            {
+                _tickTimer = 0f;
+                return;
+            }
+
+            _tickTimer -= dt;
+            if (_tickTimer > 0f) return;
+
+            float urgency = 1f - Mathf.Clamp01(secondsLeft / TickWindow); // 0 far, 1 imminent
+            _tickTimer = Mathf.Lerp(0.55f, 0.11f, urgency);
+            SfxPlayer.Play(Sfx.Tick, Mathf.Lerp(0.25f, 0.6f, urgency), Mathf.Lerp(0.9f, 1.5f, urgency));
+        }
+
         void EndDay()
         {
             CurrentPhase = Phase.DaySummary;
+            SfxPlayer.Play(Sfx.DayEnd, 0.9f);
 
             float frac = Target <= 0f ? 1f : Score / Target;
             if (frac >= 1f) Stars = 3;

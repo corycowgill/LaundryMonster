@@ -25,6 +25,7 @@ namespace LaundryMonster
                 Waiting.RemoveAt(0);
                 g.gameObject.SetActive(true);
                 p.Take(g);
+                SfxPlayer.Play(Sfx.PickUp, 0.8f);
             }
         }
 

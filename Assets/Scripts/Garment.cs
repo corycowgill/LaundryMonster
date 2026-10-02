@@ -91,11 +91,13 @@ namespace LaundryMonster
             if (State == GarmentState.Wet && StateTimer >= Tuning.MildewGrace)
             {
                 SetState(GarmentState.Mildewed);
+                SfxPlayer.Play(Sfx.Wrinkled, 0.9f, 0.7f);
                 GameDirector.Instance?.OnGarmentSpoiled(this, GarmentState.Mildewed);
             }
             else if (State == GarmentState.CleanDry && StateTimer >= Tuning.WrinkleGrace)
             {
                 SetState(GarmentState.Wrinkled);
+                SfxPlayer.Play(Sfx.Wrinkled, 0.9f);
                 GameDirector.Instance?.OnGarmentSpoiled(this, GarmentState.Wrinkled);
             }
             else
