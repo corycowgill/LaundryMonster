@@ -87,10 +87,10 @@ namespace LaundryMonster
         void BindSkeleton()
         {
             _chest = FindBone("Chest");      _head = FindBone("Head");
-            _upperArmL = FindBone("UpperArmL"); _lowerArmL = FindBone("LowerArmL");
-            _upperArmR = FindBone("UpperArmR"); _lowerArmR = FindBone("LowerArmR");
-            _upperLegL = FindBone("UpperLegL"); _lowerLegL = FindBone("LowerLegL");
-            _upperLegR = FindBone("UpperLegR"); _lowerLegR = FindBone("LowerLegR");
+            _upperArmL = FindBone("LeftArm"); _lowerArmL = FindBone("LeftForeArm");
+            _upperArmR = FindBone("RightArm"); _lowerArmR = FindBone("RightForeArm");
+            _upperLegL = FindBone("LeftLeg"); _lowerLegL = FindBone("LeftShin");
+            _upperLegR = FindBone("RightLeg"); _lowerLegR = FindBone("RightShin");
 
             _rigged = _upperArmL != null && _upperArmR != null;
             if (!_rigged) return;
