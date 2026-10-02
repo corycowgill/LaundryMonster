@@ -15,6 +15,13 @@ namespace LaundryMonster
         public float Timer;
         float _cycleLength;
 
+        /// <summary>Dryers only. Debt that survives the end of the day.</summary>
+        public int Lint;
+
+        /// <summary>Seconds this machine is unusable after a fire.</summary>
+        public float OfflineTimer;
+        public bool Offline => OfflineTimer > 0f;
+
         ProgressBar _bar;
         AudioSource _audio;
         float _nagTimer;
@@ -62,16 +69,23 @@ namespace LaundryMonster
         {
             get
             {
-                if (Running) return Mathf.CeilToInt(_cycleLength - Timer) + "s";
-                if (HasFinishedLoad) return "DONE " + Contents.Count;
-                if (Contents.Count > 0) return Contents.Count + "/" + Tuning.MachineCapacity;
-                return "empty";
+                if (Offline) return "BURNT OUT " + Mathf.CeilToInt(OfflineTimer) + "s";
+
+                string lint = MachineMode == Mode.Dryer && Lint > 0
+                    ? "  lint " + Lint + "/" + Tuning.LintMax + (Lint >= Tuning.LintFireThreshold
+                        ? " DANGER" : Lint >= Tuning.LintSlowThreshold ? " slow" : "")
+                    : "";
+
+                if (Running) return Mathf.CeilToInt(_cycleLength - Timer) + "s" + lint;
+                if (HasFinishedLoad) return "DONE " + Contents.Count + lint;
+                if (Contents.Count > 0) return Contents.Count + "/" + Tuning.MachineCapacity + lint;
+                return "empty" + lint;
             }
         }
 
         public override string ActionPrompt(PlayerController p)
         {
-            if (Running) return "";
+            if (Offline || Running) return "";
             if (HasFinishedLoad) return p.FreeSlots > 0 ? "unload" : "hands full";
 
             int loadable = 0;
@@ -84,7 +98,7 @@ namespace LaundryMonster
 
         public override void Interact(PlayerController p)
         {
-            if (Running) return;
+            if (Offline || Running) return;
 
             // 1. Finished load waiting? Take it out.
             if (HasFinishedLoad)
@@ -139,7 +153,11 @@ namespace LaundryMonster
 
         public override float HoldSeconds(PlayerController p)
         {
-            if (Running || MachineMode != Mode.Washer) return 0f;
+            if (Offline || Running) return 0f;
+
+            if (MachineMode == Mode.Dryer)
+                return Lint > 0 ? Tuning.LintClearHold : 0f;
+
             if (Contents.Count >= Tuning.MachineCapacity) return 0f;
             return UncheckedPocketsCarried(p) > 0 ? Tuning.PocketCheckHold : 0f;
         }
@@ -147,11 +165,21 @@ namespace LaundryMonster
         public override string HoldPrompt(PlayerController p)
         {
             if (HoldSeconds(p) <= 0f) return "";
+            if (MachineMode == Mode.Dryer) return "clean the lint trap (" + Lint + "/" + Tuning.LintMax + ")";
             return "check pockets, then load";
         }
 
         public override void HoldInteract(PlayerController p)
         {
+            if (MachineMode == Mode.Dryer)
+            {
+                Lint = 0;
+                SfxPlayer.Play(Sfx.LintClear, 0.9f);
+                GameDirector.Instance?.Flash("lint trap emptied", new Color(0.7f, 0.8f, 0.7f));
+                UpdateBar();
+                return;
+            }
+
             foreach (var g in p.Carried)
                 if (g.HasPockets) g.PocketsChecked = true;
 
@@ -188,10 +216,13 @@ namespace LaundryMonster
                 cut += Tuning.OddsTissue;
                 if (r < cut)
                 {
-                    // A tissue shreds over everything. Whole load back to dirty.
+                    // A tissue shreds over everything, and that fluff has to go somewhere.
                     foreach (var c in Contents) c.SetState(GarmentState.Dirty);
+                    foreach (var dry in Object.FindObjectsByType<LaundryMachine>())
+                        if (dry.MachineMode == Mode.Dryer)
+                            dry.Lint = Mathf.Min(Tuning.LintMax, dry.Lint + Tuning.LintFromTissue);
                     SfxPlayer.Play(Sfx.Disaster, 1f);
-                    dir?.Flash("A TISSUE. It is everywhere. Re-wash the whole load.",
+                    dir?.Flash("A TISSUE. Re-wash the load, and every lint trap just got worse.",
                                new Color(1f, 0.85f, 0.4f));
                     return false;
                 }
@@ -266,14 +297,64 @@ namespace LaundryMonster
                 ? Tuning.ReDryCycle
                 : (MachineMode == Mode.Washer ? Tuning.WashCycle : Tuning.DryCycle);
 
+            // A clogged dryer is slow, and eventually it is worse than slow.
+            if (MachineMode == Mode.Dryer)
+            {
+                if (Lint >= Tuning.LintFireThreshold &&
+                    (Lint >= Tuning.LintMax || Random.value < Tuning.LintFireChance))
+                {
+                    CatchFire();
+                    return;
+                }
+                if (Lint >= Tuning.LintSlowThreshold) _cycleLength *= Tuning.LintSlowMultiplier;
+            }
+
             Running = true;
             Timer = 0f;
             Nag(Sfx.Start, 0.7f);
             foreach (var g in Contents) g.DecayMultiplier = 0f; // nothing decays mid-cycle
         }
 
+        /// <summary>
+        /// Lint debt coming due. Ruins the load, takes the dryer out for a while, and
+        /// burns itself clean - at ten it ends the run outright.
+        /// </summary>
+        void CatchFire()
+        {
+            var dir = GameDirector.Instance;
+            bool terminal = Lint >= Tuning.LintMax;
+
+            Running = false;
+            Timer = 0f;
+            RuinSome(Contents.Count);
+            Nag(Sfx.Fire, 1f);
+
+            if (terminal)
+            {
+                dir?.Flash("THE DRYER IS ON FIRE. That is the run.", new Color(1f, 0.3f, 0.2f));
+                dir?.EndRun();
+                Lint = 0;
+                OfflineTimer = Tuning.FireOfflineSeconds;
+                return;
+            }
+
+            Lint = 0;                                   // the fire cleared the trap for you
+            OfflineTimer = Tuning.FireOfflineSeconds;
+            dir?.AddMonster(Tuning.MonsterPerRuined);
+            dir?.Flash("DRYER FIRE. Load gone, dryer out for "
+                       + Mathf.RoundToInt(Tuning.FireOfflineSeconds) + "s.",
+                       new Color(1f, 0.4f, 0.25f));
+        }
+
         void Update()
         {
+            if (OfflineTimer > 0f)
+            {
+                OfflineTimer -= Time.deltaTime;
+                UpdateBar();
+                return;
+            }
+
             if (Running)
             {
                 Timer += Time.deltaTime;
@@ -285,6 +366,16 @@ namespace LaundryMonster
                     {
                         g.SetState(OutputState);
                         g.DecayMultiplier = 1f; // the clock starts the moment the cycle ends
+                    }
+                    if (MachineMode == Mode.Dryer)
+                    {
+                        Lint = Mathf.Min(Tuning.LintMax, Lint + Tuning.LintPerDryCycle);
+                        if (Lint == Tuning.LintSlowThreshold)
+                            GameDirector.Instance?.Flash("the dryer is getting slow. check the lint trap.",
+                                                         new Color(0.9f, 0.85f, 0.5f));
+                        else if (Lint == Tuning.LintFireThreshold)
+                            GameDirector.Instance?.Flash("THAT LINT TRAP IS A FIRE HAZARD.",
+                                                         new Color(1f, 0.55f, 0.3f));
                     }
                     Nag(MachineMode == Mode.Washer ? Sfx.WasherDone : Sfx.DryerDone, 1f);
                     _nagTimer = NagInterval;
@@ -318,9 +409,22 @@ namespace LaundryMonster
                 float pulse = 0.5f + 0.5f * Mathf.Sin(Time.time * 6f);
                 _bar.Set(1f, Color.Lerp(new Color(0.95f, 0.75f, 0.1f), Color.white, pulse));
             }
+            else if (Offline)
+            {
+                float pulse = 0.5f + 0.5f * Mathf.Sin(Time.time * 10f);
+                _bar.Set(Mathf.Clamp01(OfflineTimer / Tuning.FireOfflineSeconds),
+                         Color.Lerp(new Color(0.6f, 0.1f, 0.05f), new Color(1f, 0.45f, 0.1f), pulse));
+            }
             else if (Contents.Count > 0)
             {
                 _bar.Set(Contents.Count / (float)Tuning.MachineCapacity, new Color(0.5f, 0.5f, 0.55f));
+            }
+            else if (MachineMode == Mode.Dryer && Lint > 0)
+            {
+                // Idle dryers show their lint debt, so it is never invisible.
+                float f = Lint / (float)Tuning.LintMax;
+                _bar.Set(f, Color.Lerp(new Color(0.45f, 0.40f, 0.30f),
+                                       new Color(0.95f, 0.35f, 0.15f), f));
             }
             else
             {

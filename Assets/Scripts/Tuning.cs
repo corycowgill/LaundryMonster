@@ -64,6 +64,19 @@ namespace LaundryMonster
         public const float StarOneFraction = 0.60f;
         public const float StarTwoFraction = 0.85f;
 
+        // --- lint: debt, not damage ---
+        // Clearing the trap never helps the load in front of you. It only ever pays off
+        // later, which is the whole lesson.
+        public const int LintMax = 10;
+        public const int LintPerDryCycle = 1;
+        public const int LintFromTissue = 3;
+        public const int LintSlowThreshold = 5;        // dry cycles start dragging
+        public const float LintSlowMultiplier = 1.5f;
+        public const int LintFireThreshold = 8;        // now it can catch fire
+        public const float LintFireChance = 0.20f;
+        public const float FireOfflineSeconds = 30f;
+        public const float LintClearHold = 2.0f;
+
         // --- monster ---
         public const float MonsterPerWrinkled = 1f;
         public const float MonsterPerMildewed = 1.5f;

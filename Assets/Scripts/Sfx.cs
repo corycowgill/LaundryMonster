@@ -51,6 +51,12 @@ namespace LaundryMonster
 
         public static AudioClip RunOver => Sweep("runOver", 400f, 55f, 1.1f, 0.45f, true);
 
+        /// <summary>The dryer catches. Low, long and bad.</summary>
+        public static AudioClip Fire => Sweep("fire", 190f, 42f, 0.95f, 0.5f, true);
+
+        /// <summary>Lint trap emptied. Quietly satisfying, never triumphant - it fixed nothing yet.</summary>
+        public static AudioClip LintClear => Sequence("lintClear", new[] { 440f, 320f }, 0.07f, 0.22f, false);
+
         // ---------- synthesis ----------
 
         /// <summary>A run of tones back to back, each with a click-free envelope.</summary>

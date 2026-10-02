@@ -22,7 +22,7 @@ Verified in Play mode, not assumed.
 | day transitions, 1-3 star rating | working |
 | Monster grows from neglect | working |
 | pocket roulette | working - tap to gamble, hold to check |
-| lint traps | not built |
+| lint traps | working - debt that survives the day, and burns |
 | socks / the Sock Void | not built |
 | darks/whites separation | not built |
 | audio | working - synthesised in code, no sound files |

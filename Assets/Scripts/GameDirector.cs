@@ -47,6 +47,13 @@ namespace LaundryMonster
             FlashTimer = FlashDuration;
         }
 
+        /// <summary>End the run immediately. A ten-lint dryer fire does this.</summary>
+        public void EndRun()
+        {
+            CurrentPhase = Phase.RunOver;
+            SfxPlayer.Play(Sfx.RunOver, 1f);
+        }
+
         /// <summary>Destroy a garment outright. Only pocket disasters do this.</summary>
         public void Ruin(Garment g)
         {
@@ -110,6 +117,8 @@ namespace LaundryMonster
                 m.Contents.Clear();
                 m.Running = false;
                 m.Timer = 0f;
+                m.OfflineTimer = 0f;          // a burnt dryer cools off overnight
+                if (day == 1) m.Lint = 0;     // but lint is run-long debt
             }
 
             foreach (var c in Object.FindObjectsByType<Chair>())
