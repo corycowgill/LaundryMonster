@@ -49,8 +49,14 @@ public static class Builder
         // Keep the download small: this is the target platform.
         PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Gzip;
         PlayerSettings.WebGL.dataCaching = true;
+
+        // Minimal, not High. The room is built from code-created materials, and
+        // aggressive stripping removes shaders nothing in the scene statically
+        // references. 11.8MB is already fine for this game; correctness wins.
         PlayerSettings.SetManagedStrippingLevel(
-            UnityEditor.Build.NamedBuildTarget.WebGL, ManagedStrippingLevel.High);
+            UnityEditor.Build.NamedBuildTarget.WebGL, ManagedStrippingLevel.Minimal);
+
+        EnsureShadersIncluded();
 
         var options = new BuildPlayerOptions
         {
@@ -64,8 +70,54 @@ public static class Builder
         return Run(options);
     }
 
+    /// <summary>
+    /// Force the shaders this game needs into the build. Everything here is applied to
+    /// materials created at runtime or by an editor script, so the build-time stripper
+    /// sees nothing referencing them and throws them away - which is how you end up
+    /// with magenta quads and invisible geometry in a player that looks fine in the Editor.
+    /// </summary>
+    static void EnsureShadersIncluded()
+    {
+        var wanted = new[]
+        {
+            "Universal Render Pipeline/Lit",
+            "Universal Render Pipeline/Unlit",
+            "Universal Render Pipeline/Simple Lit",
+        };
+
+        // GraphicsSettings.asset is not an AssetDatabase path; this is the supported handle.
+        var graphics = UnityEngine.Rendering.GraphicsSettings.GetGraphicsSettings();
+        if (graphics == null) { Debug.LogWarning("Builder: no GraphicsSettings object."); return; }
+
+        var so = new SerializedObject(graphics);
+        var list = so.FindProperty("m_AlwaysIncludedShaders");
+
+        var have = new System.Collections.Generic.HashSet<string>();
+        for (int i = 0; i < list.arraySize; i++)
+        {
+            var s = list.GetArrayElementAtIndex(i).objectReferenceValue as Shader;
+            if (s != null) have.Add(s.name);
+        }
+
+        foreach (var name in wanted)
+        {
+            if (have.Contains(name)) continue;
+            var shader = Shader.Find(name);
+            if (shader == null) { Debug.LogWarning("Builder: shader not found: " + name); continue; }
+
+            list.InsertArrayElementAtIndex(list.arraySize);
+            list.GetArrayElementAtIndex(list.arraySize - 1).objectReferenceValue = shader;
+            Debug.Log("Builder: always-including shader " + name);
+        }
+
+        so.ApplyModifiedProperties();
+        AssetDatabase.SaveAssets();
+    }
+
     static string Run(BuildPlayerOptions options)
     {
+        EnsureShadersIncluded();
+
         PlayerSettings.productName = "Laundry Monster";
         PlayerSettings.companyName = "Cory Cowgill";
         PlayerSettings.runInBackground = true;

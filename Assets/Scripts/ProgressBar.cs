@@ -61,9 +61,29 @@ namespace LaundryMonster
             quad.transform.localScale = scale;
 
             var rend = quad.GetComponent<Renderer>();
+
+            // Shader.Find only sees shaders the build actually kept. Nothing in the scene
+            // references Unlit, so the stripper removes it and this returns null in a
+            // player - which threw ArgumentNullException and left every bar magenta.
+            // The pipeline's own default material is always included, so it is the
+            // one safe fallback.
             var shader = Shader.Find("Universal Render Pipeline/Unlit");
-            if (shader == null) shader = Shader.Find("Unlit/Color");
-            var mat = new Material(shader);
+            Material mat;
+            if (shader != null)
+            {
+                mat = new Material(shader);
+            }
+            else
+            {
+                var rp = UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline;
+                var fallback = rp != null ? rp.defaultMaterial : null;
+                if (fallback == null)
+                {
+                    Debug.LogError("ProgressBar: no usable shader; bar will not render.");
+                    return rend;
+                }
+                mat = new Material(fallback);
+            }
             mat.color = color;
             rend.sharedMaterial = mat;
             rend.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
