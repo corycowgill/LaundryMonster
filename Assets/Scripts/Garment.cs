@@ -78,7 +78,10 @@ namespace LaundryMonster
         void Awake()
         {
             _rend = GetComponentInChildren<Renderer>();
-            if (_rend != null)
+            // A renderer with no material is not a reason to throw. new Material(null)
+            // raised ArgumentNullException once per spawn in the WebGL build, where the
+            // spawner's own material lookup had quietly failed.
+            if (_rend != null && _rend.sharedMaterial != null)
             {
                 _mat = new Material(_rend.sharedMaterial);
                 _rend.sharedMaterial = _mat;

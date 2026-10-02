@@ -372,9 +372,23 @@ namespace LaundryMonster
             }
 
             if (GarmentSpawnParent != null) go.transform.SetParent(GarmentSpawnParent, false);
-            var rp = UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline;
-            if (rp != null && rp.defaultMaterial != null)
-                rend.sharedMaterial = new Material(rp.defaultMaterial);
+
+            // Same trap ProgressBar documents: RenderPipelineAsset.defaultMaterial is
+            // editor-only and comes back null in a player, so this guard silently left
+            // every spawned garment with no material at all. Builder forces URP/Lit into
+            // Always Included Shaders, which is what makes Shader.Find survive the build.
+            var litShader = Shader.Find("Universal Render Pipeline/Lit");
+            if (litShader != null)
+            {
+                rend.sharedMaterial = new Material(litShader);
+            }
+            else
+            {
+                var rp = UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline;
+                var fallback = rp != null ? rp.defaultMaterial : null;
+                if (fallback != null) rend.sharedMaterial = new Material(fallback);
+                else Debug.LogError("GameDirector: no usable shader for garments.");
+            }
             rend.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
 
             var g = go.AddComponent<Garment>();
