@@ -181,10 +181,9 @@ public static class RoomBuilder
 
         // Generated model if we have one; the primitive build is the fallback.
         bool washer = mode == LaundryMachine.Mode.Washer;
-        var model = AddModel(go.transform, "Model", "washer", Vector3.zero,
+        var model = AddModel(go.transform, "Model", washer ? "washer" : "dryer", Vector3.zero,
                              Quaternion.Euler(0f, ModelYaw, 0f),
-                             washer ? new Color(0.95f, 0.96f, 1f) : new Color(0.95f, 0.78f, 0.52f),
-                             0.5f);
+                             Color.white, 0.5f);
         if (model == null)
         {
             Child(go.transform, "Mesh", PrimitiveType.Cube,
@@ -238,12 +237,15 @@ public static class RoomBuilder
         go.transform.SetParent(parent, false);
         go.transform.position = pos;
 
-        Child(go.transform, "Mesh", PrimitiveType.Cube,
-              new Vector3(0f, 0.42f, 0f), new Vector3(1.35f, 0.84f, 1.35f), mat);
-
-        Child(go.transform, "Rim", PrimitiveType.Cube,
-              new Vector3(0f, 0.86f, 0f), new Vector3(1.48f, 0.10f, 1.48f),
-              Mat(new Color(0.46f, 0.34f, 0.23f), 0.2f));
+        if (AddModel(go.transform, "Model", "basket", Vector3.zero,
+                     Quaternion.Euler(0f, ModelYaw, 0f), Color.white, 0.12f) == null)
+        {
+            Child(go.transform, "Mesh", PrimitiveType.Cube,
+                  new Vector3(0f, 0.42f, 0f), new Vector3(1.35f, 0.84f, 1.35f), mat);
+            Child(go.transform, "Rim", PrimitiveType.Cube,
+                  new Vector3(0f, 0.86f, 0f), new Vector3(1.48f, 0.10f, 1.48f),
+                  Mat(new Color(0.46f, 0.34f, 0.23f), 0.2f));
+        }
         return go;
     }
 
@@ -275,6 +277,10 @@ public static class RoomBuilder
         go.transform.SetParent(parent, false);
         go.transform.position = pos;
 
+        if (AddModel(go.transform, "Model", "closet", Vector3.zero,
+                     Quaternion.Euler(0f, ModelYaw + 90f, 0f), Color.white, 0.18f) != null)
+            return go;
+
         Child(go.transform, "Mesh", PrimitiveType.Cube,
               new Vector3(0f, 1.1f, 0f), new Vector3(1.1f, 2.2f, 2.6f), body);
 
@@ -296,14 +302,18 @@ public static class RoomBuilder
         go.transform.SetParent(parent, false);
         go.transform.position = pos;
 
-        Child(go.transform, "Mesh", PrimitiveType.Cube,
-              new Vector3(0f, 0.48f, 0f), new Vector3(1.25f, 0.18f, 1.2f), fabric);
-        Child(go.transform, "Back", PrimitiveType.Cube,
-              new Vector3(0f, 0.95f, 0.52f), new Vector3(1.25f, 0.8f, 0.14f), fabric);
-        foreach (var lx in new[] { -0.5f, 0.5f })
-            foreach (var lz in new[] { -0.47f, 0.47f })
-                Child(go.transform, "Leg", PrimitiveType.Cylinder,
-                      new Vector3(lx, 0.24f, lz), new Vector3(0.09f, 0.24f, 0.09f), wood);
+        if (AddModel(go.transform, "Model", "chair", Vector3.zero,
+                     Quaternion.Euler(0f, ModelYaw, 0f), Color.white, 0.2f) == null)
+        {
+            Child(go.transform, "Mesh", PrimitiveType.Cube,
+                  new Vector3(0f, 0.48f, 0f), new Vector3(1.25f, 0.18f, 1.2f), fabric);
+            Child(go.transform, "Back", PrimitiveType.Cube,
+                  new Vector3(0f, 0.95f, 0.52f), new Vector3(1.25f, 0.8f, 0.14f), fabric);
+            foreach (var lx in new[] { -0.5f, 0.5f })
+                foreach (var lz in new[] { -0.47f, 0.47f })
+                    Child(go.transform, "Leg", PrimitiveType.Cylinder,
+                          new Vector3(lx, 0.24f, lz), new Vector3(0.09f, 0.24f, 0.09f), wood);
+        }
         return go;
     }
 

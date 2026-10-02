@@ -26,7 +26,7 @@ Verified in Play mode, not assumed.
 | socks / the Sock Void | working - pairs, orphans, dust rags |
 | darks/whites separation | not built |
 | audio | working - synthesised in code, no sound files |
-| art | composed primitives + generated textures and a 4-light rig |
+| art | AI-generated: FLUX textures + TRELLIS 3D models for machines, hamper, chair, closet |
 
 Controls: WASD/arrows or left stick to move. E to interact - tap and hold do
 different things at a washer. SPACE to advance at the day summary.
