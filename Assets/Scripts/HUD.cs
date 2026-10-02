@@ -13,7 +13,7 @@ namespace LaundryMonster
         PlayerController _player;
         GameDirector _dir;
 
-        Text _dayText, _timeText, _scoreText, _carryText, _promptText, _monsterText;
+        Text _dayText, _timeText, _scoreText, _carryText, _promptText, _monsterText, _flashText;
         Image _timeFill, _monsterFill, _holdFill;
         GameObject _holdGroup, _summaryPanel;
         Text _summaryText;
@@ -121,6 +121,10 @@ namespace LaundryMonster
             _holdFill.fillOrigin = 0;
             _holdGroup.SetActive(false);
 
+            // --- centre: pocket-disaster flash ---
+            _flashText = MakeText(root, "", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                                  new Vector2(0f, 180f), new Vector2(1100f, 70f), 40, TextAnchor.MiddleCenter);
+
             // --- centre: day summary ---
             _summaryPanel = new GameObject("Summary");
             _summaryPanel.transform.SetParent(root, false);
@@ -224,8 +228,26 @@ namespace LaundryMonster
             _monsterFill.fillAmount = mFrac;
             _monsterText.text = mFrac > 0.75f ? "MONSTER - it has eyes now" : "MONSTER";
 
+            UpdateFlash();
             UpdateCarryAndPrompt();
             UpdateSummary();
+        }
+
+        void UpdateFlash()
+        {
+            if (_flashText == null) return;
+
+            if (_dir.FlashTimer <= 0f)
+            {
+                if (_flashText.text.Length > 0) _flashText.text = "";
+                return;
+            }
+
+            _flashText.text = _dir.FlashMessage;
+            // Fade out over the last second so it does not just vanish.
+            var c = _dir.FlashColor;
+            c.a = Mathf.Clamp01(_dir.FlashTimer);
+            _flashText.color = c;
         }
 
         void UpdateCarryAndPrompt()
@@ -238,7 +260,9 @@ namespace LaundryMonster
 
             if (_player.Carried.Count == 0)
             {
-                _carryText.text = "carrying nothing";
+                _carryText.text = _player.CarryPenalty > 0
+                    ? "carrying nothing  (" + _player.CarryCapacity + " slot, AirPods lost)"
+                    : "carrying nothing";
                 _carryText.color = new Color(1f, 1f, 1f, 0.5f);
             }
             else
@@ -263,15 +287,16 @@ namespace LaundryMonster
             }
             else
             {
-                string action = near.ActionPrompt(_player);
+                // A station can offer both, and the player must see both to choose.
+                string tap = near.ActionPrompt(_player);
+                string hold = near.HoldPrompt(_player);
                 string status = near.Status;
+
                 string line = near.Label;
                 if (!string.IsNullOrEmpty(status)) line += "  [" + status + "]";
-                if (!string.IsNullOrEmpty(action))
-                {
-                    bool isHold = near.HoldSeconds(_player) > 0f;
-                    line += "\n" + (isHold ? "hold E to " : "press E to ") + action;
-                }
+                if (!string.IsNullOrEmpty(tap)) line += "\npress E to " + tap;
+                if (!string.IsNullOrEmpty(hold) && near.HoldSeconds(_player) > 0f)
+                    line += "\nhold E to " + hold;
                 _promptText.text = line;
             }
 

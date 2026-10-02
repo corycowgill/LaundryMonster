@@ -116,8 +116,131 @@ namespace LaundryMonster
             UpdateBar();
         }
 
+        // ---------- pocket roulette ----------
+
+        /// <summary>Garments the player is carrying that this machine wants and that still have unchecked pockets.</summary>
+        int UncheckedPocketsCarried(PlayerController p)
+        {
+            int n = 0;
+            foreach (var g in p.Carried)
+                if (Accepts(g) && g.HasPockets && !g.PocketsChecked && !g.PocketsResolved) n++;
+            return n;
+        }
+
+        public override float HoldSeconds(PlayerController p)
+        {
+            if (Running || MachineMode != Mode.Washer) return 0f;
+            if (Contents.Count >= Tuning.MachineCapacity) return 0f;
+            return UncheckedPocketsCarried(p) > 0 ? Tuning.PocketCheckHold : 0f;
+        }
+
+        public override string HoldPrompt(PlayerController p)
+        {
+            if (HoldSeconds(p) <= 0f) return "";
+            return "check pockets, then load";
+        }
+
+        public override void HoldInteract(PlayerController p)
+        {
+            foreach (var g in p.Carried)
+                if (g.HasPockets) g.PocketsChecked = true;
+
+            GameDirector.Instance?.Flash("pockets checked", new Color(0.6f, 0.85f, 1f));
+            Interact(p);   // then load as normal
+        }
+
+        /// <summary>
+        /// Rolls for every unchecked pocketed garment in the drum.
+        /// Returns false if the load cannot run at all (tissue).
+        /// </summary>
+        bool ResolvePockets()
+        {
+            if (MachineMode != Mode.Washer) return true;
+
+            var gambling = new List<Garment>();
+            foreach (var g in Contents)
+                if (g.HasPockets && !g.PocketsChecked && !g.PocketsResolved) gambling.Add(g);
+
+            if (gambling.Count == 0) return true;
+
+            var dir = GameDirector.Instance;
+            foreach (var g in gambling) g.PocketsResolved = true;
+
+            foreach (var g in gambling)
+            {
+                float r = Random.value;
+                float cut = Tuning.OddsNothing;
+
+                if (r < cut)
+                    continue;                                   // empty pockets, got away with it
+
+                cut += Tuning.OddsTissue;
+                if (r < cut)
+                {
+                    // A tissue shreds over everything. Whole load back to dirty.
+                    foreach (var c in Contents) c.SetState(GarmentState.Dirty);
+                    dir?.Flash("A TISSUE. It is everywhere. Re-wash the whole load.",
+                               new Color(1f, 0.85f, 0.4f));
+                    return false;
+                }
+
+                cut += Tuning.OddsWallet;
+                if (r < cut)
+                {
+                    float lost = dir != null ? dir.Score * Tuning.WalletScorePenalty : 0f;
+                    if (dir != null) dir.Score -= lost;
+                    dir?.Flash("Your WALLET was in there. -" + lost.ToString("0.#") + " score.",
+                               new Color(1f, 0.6f, 0.3f));
+                    continue;
+                }
+
+                cut += Tuning.OddsChapstick;
+                if (r < cut)
+                {
+                    RuinSome(Tuning.ChapstickRuins);
+                    dir?.Flash("CHAPSTICK. Grease on " + Tuning.ChapstickRuins + " garments.",
+                               new Color(1f, 0.5f, 0.3f));
+                    return Contents.Count > 0;
+                }
+
+                cut += Tuning.OddsCrayon;
+                if (r < cut)
+                {
+                    RuinSome(Contents.Count);
+                    dir?.Flash("A CRAYON. The entire load is ruined.", new Color(1f, 0.35f, 0.3f));
+                    return false;
+                }
+
+                // AirPods: the only permanent loss in the game.
+                var player = Object.FindAnyObjectByType<PlayerController>();
+                if (player != null) player.CarryPenalty++;
+                dir?.Flash("YOUR AIRPODS. Gone. You can carry one less for the rest of the run.",
+                           new Color(1f, 0.3f, 0.45f));
+            }
+
+            return Contents.Count > 0;
+        }
+
+        void RuinSome(int count)
+        {
+            var dir = GameDirector.Instance;
+            for (int i = 0; i < count && Contents.Count > 0; i++)
+            {
+                var g = Contents[0];
+                Contents.RemoveAt(0);
+                dir?.Ruin(g);
+            }
+        }
+
         void StartCycle()
         {
+            // The gamble resolves the moment you commit the load.
+            if (!ResolvePockets())
+            {
+                UpdateBar();
+                return;
+            }
+
             // A load of wrinkled garments is a quick refresh, not a full cycle.
             bool allWrinkled = MachineMode == Mode.Dryer;
             foreach (var g in Contents)

@@ -29,12 +29,21 @@ namespace LaundryMonster
         /// <summary>Right-hand status line, e.g. "washing 7s" or "3/8".</summary>
         public virtual string Status => "";
 
-        /// <summary>What pressing E would do right now; empty means nothing useful.</summary>
+        // A station can offer a tap action, a hold action, or both. Offering both is
+        // what makes "load it now" vs "check the pockets first" a real decision at
+        // the moment you commit, with no detour to a separate station.
+
+        /// <summary>What TAPPING E does right now; empty means nothing useful.</summary>
         public abstract string ActionPrompt(PlayerController p);
 
-        /// <summary>&gt; 0 turns this into a hold-to-use action.</summary>
+        public abstract void Interact(PlayerController p);
+
+        /// <summary>What HOLDING E does right now; empty means holding does nothing.</summary>
+        public virtual string HoldPrompt(PlayerController p) => "";
+
+        /// <summary>How long the hold takes. Must be &gt; 0 for a hold action to exist.</summary>
         public virtual float HoldSeconds(PlayerController p) => 0f;
 
-        public abstract void Interact(PlayerController p);
+        public virtual void HoldInteract(PlayerController p) { }
     }
 }

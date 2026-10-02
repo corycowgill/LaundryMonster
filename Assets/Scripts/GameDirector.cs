@@ -34,6 +34,29 @@ namespace LaundryMonster
 
         public int Stars { get; private set; }
 
+        /// <summary>Short on-screen message. A gamble the player cannot read teaches nothing.</summary>
+        public string FlashMessage = "";
+        public float FlashTimer;
+        public Color FlashColor = Color.white;
+        public const float FlashDuration = 3.5f;
+
+        public void Flash(string msg, Color color)
+        {
+            FlashMessage = msg;
+            FlashColor = color;
+            FlashTimer = FlashDuration;
+        }
+
+        /// <summary>Destroy a garment outright. Only pocket disasters do this.</summary>
+        public void Ruin(Garment g)
+        {
+            if (g == null) return;
+            g.SetState(GarmentState.Ruined);
+            OnGarmentSpoiled(g, GarmentState.Ruined);
+            _all.Remove(g);
+            Destroy(g.gameObject);
+        }
+
         readonly List<Garment> _all = new List<Garment>();
         readonly List<float> _spawnTimes = new List<float>();
         int _spawnIndex;
@@ -93,7 +116,11 @@ namespace LaundryMonster
                 c.Pile.Clear();
 
             var player = Object.FindAnyObjectByType<PlayerController>();
-            if (player != null) player.Carried.Clear();
+            if (player != null)
+            {
+                player.Carried.Clear();
+                if (day == 1) player.CarryPenalty = 0;   // AirPods loss lasts the whole run
+            }
 
             // Spread the day's laundry across the first 70% of it, so the back half
             // is about finishing rather than starting.
@@ -106,6 +133,8 @@ namespace LaundryMonster
 
         void Update()
         {
+            if (FlashTimer > 0f) FlashTimer -= Time.deltaTime;
+
             if (CurrentPhase == Phase.Playing) TickDay();
             else if (Keyboard.current != null &&
                      (Keyboard.current.spaceKey.wasPressedThisFrame ||
@@ -181,7 +210,7 @@ namespace LaundryMonster
             var g = go.AddComponent<Garment>();
             g.Kind = kind;
             g.State = GarmentState.Dirty;
-            g.HasPockets = kind == GarmentKind.Pants || Random.value < 0.15f;
+            g.HasPockets = kind == GarmentKind.Pants || Random.value < Tuning.PocketChanceOnNonPants;
 
             _all.Add(g);
             if (Hamper != null) Hamper.Add(g);

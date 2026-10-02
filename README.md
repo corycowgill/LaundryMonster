@@ -9,6 +9,28 @@ the Monster is made of.
 
 See **[DESIGN.md](DESIGN.md)** for systems, tuning values and the escalation schedule.
 
+## Status
+
+Verified in Play mode, not assumed.
+
+| System | State |
+|---|---|
+| wash -> dry -> fold -> deliver | working |
+| wrinkle clock (15s) | working - the core mechanic |
+| mildew clock (20s) | working |
+| The Chair (2x decay, feeds Monster) | working |
+| day transitions, 1-3 star rating | working |
+| Monster grows from neglect | working |
+| pocket roulette | working - tap to gamble, hold to check |
+| lint traps | not built |
+| socks / the Sock Void | not built |
+| darks/whites separation | not built |
+| audio | not built - and it is doing none of the work it should |
+| art | greybox primitives, not the low-poly look |
+
+Controls: WASD/arrows or left stick to move. E to interact - tap and hold do
+different things at a washer. SPACE to advance at the day summary.
+
 ## Project facts
 
 | | |

@@ -31,6 +31,21 @@ namespace LaundryMonster
 
         // --- holds ---
         public const float FoldHold = 2.5f;
+        public const float PocketCheckHold = 1.2f;
+
+        // --- pocket roulette ---
+        // Skipping the check is free most of the time. That is the point: players
+        // learn to check by getting burned, not by being told.
+        public const float PocketChanceOnNonPants = 0.15f;  // pants always have pockets
+        public const float OddsNothing   = 0.70f;
+        public const float OddsTissue    = 0.10f;  // load must be re-washed
+        public const float OddsWallet    = 0.08f;  // lose a quarter of the day's score
+        public const float OddsChapstick = 0.05f;  // 2 garments ruined
+        public const float OddsCrayon    = 0.04f;  // whole load ruined
+        public const float OddsAirPods   = 0.03f;  // permanent: -1 carry slot for the run
+        public const float WalletScorePenalty = 0.25f;
+        public const int ChapstickRuins = 2;
+        public const int MinCarryCapacity = 1;
 
         // --- capacities ---
         public const int MachineCapacity = 4;

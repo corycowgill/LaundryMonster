@@ -19,17 +19,21 @@ namespace LaundryMonster
             return null;
         }
 
+        // Folding is a hold, and there is no tap action here.
+        public override string ActionPrompt(PlayerController p) => "";
+        public override void Interact(PlayerController p) { }
+
         public override float HoldSeconds(PlayerController p) =>
             FirstFoldable(p) != null ? Tuning.FoldHold : 0f;
 
-        public override string ActionPrompt(PlayerController p)
+        public override string HoldPrompt(PlayerController p)
         {
             var g = FirstFoldable(p);
             if (g == null) return "";
-            return g.State == GarmentState.Wrinkled ? "fold (wrinkled, half)" : "fold";
+            return g.State == GarmentState.Wrinkled ? "fold (wrinkled, half value)" : "fold";
         }
 
-        public override void Interact(PlayerController p)
+        public override void HoldInteract(PlayerController p)
         {
             var g = FirstFoldable(p);
             if (g == null) return;

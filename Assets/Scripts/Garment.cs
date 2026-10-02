@@ -10,7 +10,15 @@ namespace LaundryMonster
     {
         public GarmentKind Kind;
         public GarmentState State = GarmentState.Dirty;
+
+        /// <summary>Has pockets worth checking. Pants always do.</summary>
         public bool HasPockets;
+
+        /// <summary>Checked before loading, so the roulette is skipped for this garment.</summary>
+        public bool PocketsChecked;
+
+        /// <summary>True once this garment has gambled and survived, so it never rolls twice.</summary>
+        public bool PocketsResolved;
 
         /// <summary>Seconds spent in the current decaying state.</summary>
         public float StateTimer;

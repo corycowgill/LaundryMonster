@@ -22,7 +22,16 @@ namespace LaundryMonster
 
         float _holdTimer;
 
-        public int FreeSlots => Tuning.CarryCapacity - Carried.Count;
+        /// <summary>A completed hold already acted, so releasing must not also tap.</summary>
+        bool _holdConsumed;
+
+        /// <summary>Permanent carry slots lost this run, e.g. to the AirPods disaster.</summary>
+        public int CarryPenalty;
+
+        public int CarryCapacity =>
+            Mathf.Max(Tuning.MinCarryCapacity, Tuning.CarryCapacity - CarryPenalty);
+
+        public int FreeSlots => CarryCapacity - Carried.Count;
 
         void Awake()
         {
@@ -118,40 +127,57 @@ namespace LaundryMonster
             return gp != null && gp.buttonSouth.wasPressedThisFrame;
         }
 
+        bool InteractReleased()
+        {
+            var kb = Keyboard.current;
+            if (kb != null && kb.eKey.wasReleasedThisFrame) return true;
+            var gp = Gamepad.current;
+            return gp != null && gp.buttonSouth.wasReleasedThisFrame;
+        }
+
         void HandleInteract()
         {
-            if (Nearest == null || string.IsNullOrEmpty(Nearest.ActionPrompt(this)))
+            if (Nearest == null)
             {
                 _holdTimer = 0f;
                 HoldProgress = 0f;
                 return;
             }
 
+            bool hasTap = !string.IsNullOrEmpty(Nearest.ActionPrompt(this));
             float need = Nearest.HoldSeconds(this);
+            bool hasHold = need > 0f && !string.IsNullOrEmpty(Nearest.HoldPrompt(this));
 
-            if (need <= 0f)
-            {
-                HoldProgress = 0f;
-                if (InteractPressed()) Nearest.Interact(this);
-                return;
-            }
-
-            if (InteractHeld())
+            // Hold first: a station offering both resolves the hold, and the tap only
+            // fires on release if the hold never completed.
+            if (hasHold && InteractHeld())
             {
                 _holdTimer += Time.deltaTime;
                 HoldProgress = Mathf.Clamp01(_holdTimer / need);
                 if (_holdTimer >= need)
                 {
-                    Nearest.Interact(this);
-                    _holdTimer = 0f;   // keep holding to fold the next one
+                    Nearest.HoldInteract(this);
+                    _holdTimer = 0f;        // keep holding to repeat
                     HoldProgress = 0f;
+                    _holdConsumed = true;   // do not also fire the tap on release
                 }
+                return;
             }
-            else
+
+            if (hasTap && InteractPressed() && !hasHold)
             {
-                _holdTimer = 0f;       // releasing early cancels
-                HoldProgress = 0f;
+                Nearest.Interact(this);
             }
+            else if (hasTap && hasHold && InteractReleased())
+            {
+                // Tapped and let go before the hold completed -> treat it as the tap action.
+                if (!_holdConsumed && _holdTimer > 0f) Nearest.Interact(this);
+            }
+
+            if (InteractReleased()) _holdConsumed = false;
+
+            _holdTimer = 0f;
+            HoldProgress = 0f;
         }
 
         public void Take(Garment g)
