@@ -33,18 +33,18 @@ public static class RoomBuilder
 
         // ---- palette ----
         var floorMat   = Mat(new Color(0.52f, 0.50f, 0.55f), 0.35f);
-        var wallMat    = Mat(new Color(0.74f, 0.72f, 0.68f), 0.08f);
+        var wallMat    = Mat(new Color(0.84f, 0.82f, 0.76f), 0.08f, 0f, "wall_paint", new Vector2(5f, 1.2f));
         var trimMat    = Mat(new Color(0.42f, 0.41f, 0.40f), 0.25f);
-        var washerMat  = Mat(new Color(0.93f, 0.94f, 0.96f), 0.55f, 0.15f);
-        var dryerMat   = Mat(new Color(0.90f, 0.78f, 0.60f), 0.55f, 0.15f);
+        var washerMat  = Mat(new Color(0.86f, 0.89f, 0.95f), 0.55f, 0.25f, "metal_brushed", new Vector2(1.2f, 1f));
+        var dryerMat   = Mat(new Color(0.86f, 0.68f, 0.44f), 0.55f, 0.25f, "metal_brushed", new Vector2(1.2f, 1f));
         var glassMat   = Mat(new Color(0.10f, 0.13f, 0.18f), 0.85f, 0.10f);
         var panelMat   = Mat(new Color(0.22f, 0.24f, 0.28f), 0.50f);
-        var hamperMat  = Mat(new Color(0.60f, 0.46f, 0.32f), 0.12f);
-        var woodMat    = Mat(new Color(0.76f, 0.60f, 0.40f), 0.22f);
-        var closetMat  = Mat(new Color(0.42f, 0.54f, 0.44f), 0.18f);
-        var chairMat   = Mat(new Color(0.66f, 0.34f, 0.36f), 0.20f);
+        var hamperMat  = Mat(new Color(0.80f, 0.66f, 0.46f), 0.12f, 0f, "wicker", new Vector2(2f, 1.2f));
+        var woodMat    = Mat(new Color(0.86f, 0.70f, 0.50f), 0.25f, 0f, "wood_top", new Vector2(2.2f, 1.2f));
+        var closetMat  = Mat(new Color(0.46f, 0.66f, 0.49f), 0.18f, 0f, "cabinet_paint", new Vector2(1.4f, 2f));
+        var chairMat   = Mat(new Color(0.80f, 0.40f, 0.42f), 0.20f, 0f, "fabric", new Vector2(1.6f, 1.6f));
         var monsterMat = Mat(new Color(0.30f, 0.28f, 0.26f), 0.10f);
-        var sockMat    = Mat(new Color(0.50f, 0.44f, 0.62f), 0.20f);
+        var sockMat    = Mat(new Color(0.52f, 0.45f, 0.72f), 0.20f, 0f, "cabinet_paint", new Vector2(1.6f, 1.2f));
         var chromeMat  = Mat(new Color(0.78f, 0.80f, 0.84f), 0.85f, 0.90f);
         var skinMat    = Mat(new Color(0.95f, 0.78f, 0.62f), 0.10f);
         var shirtMat   = Mat(new Color(0.25f, 0.55f, 0.85f), 0.20f);
@@ -55,12 +55,9 @@ public static class RoomBuilder
         Style(floor, SurfaceStyle.Style.Floor, new Vector2(8f, 6f), 0.35f);
         floor.isStatic = true;
 
-        var wb = Box(root.transform, "Wall_Back",  new Vector3(0f, 1.4f, 7.6f),  new Vector3(17f, 2.8f, 0.4f), wallMat);
-        var wl = Box(root.transform, "Wall_Left",  new Vector3(-8.3f, 1.4f, 1f), new Vector3(0.4f, 2.8f, 13f), wallMat);
-        var wr = Box(root.transform, "Wall_Right", new Vector3(8.3f, 1.4f, 1f),  new Vector3(0.4f, 2.8f, 13f), wallMat);
-        Style(wb, SurfaceStyle.Style.Wall, new Vector2(6f, 1.5f), 0.06f);
-        Style(wl, SurfaceStyle.Style.Wall, new Vector2(5f, 1.5f), 0.06f);
-        Style(wr, SurfaceStyle.Style.Wall, new Vector2(5f, 1.5f), 0.06f);
+        Box(root.transform, "Wall_Back",  new Vector3(0f, 1.4f, 7.6f),  new Vector3(17f, 2.8f, 0.4f), wallMat);
+        Box(root.transform, "Wall_Left",  new Vector3(-8.3f, 1.4f, 1f), new Vector3(0.4f, 2.8f, 13f), wallMat);
+        Box(root.transform, "Wall_Right", new Vector3(8.3f, 1.4f, 1f),  new Vector3(0.4f, 2.8f, 13f), wallMat);
 
         // Skirting, so the wall/floor join reads as a room rather than a box.
         Box(root.transform, "Skirt_Back",  new Vector3(0f, 0.09f, 7.36f),  new Vector3(17f, 0.18f, 0.12f), trimMat);
@@ -147,9 +144,8 @@ public static class RoomBuilder
         go.transform.SetParent(parent, false);
         go.transform.position = pos;
 
-        var shellGo = Child(go.transform, "Mesh", PrimitiveType.Cube,
-                            new Vector3(0f, 0.62f, 0f), new Vector3(1.55f, 1.15f, 1.35f), shell);
-        Style(shellGo, SurfaceStyle.Style.Metal, new Vector2(1f, 1f), 0.55f, 0.15f);
+        Child(go.transform, "Mesh", PrimitiveType.Cube,
+              new Vector3(0f, 0.62f, 0f), new Vector3(1.55f, 1.15f, 1.35f), shell);
 
         // Feet, so it sits on the floor instead of in it.
         foreach (var fx in new[] { -0.6f, 0.6f })
@@ -192,9 +188,8 @@ public static class RoomBuilder
         go.transform.SetParent(parent, false);
         go.transform.position = pos;
 
-        var basket = Child(go.transform, "Mesh", PrimitiveType.Cube,
-                           new Vector3(0f, 0.42f, 0f), new Vector3(1.35f, 0.84f, 1.35f), mat);
-        Style(basket, SurfaceStyle.Style.Weave, new Vector2(3f, 2f), 0.1f);
+        Child(go.transform, "Mesh", PrimitiveType.Cube,
+              new Vector3(0f, 0.42f, 0f), new Vector3(1.35f, 0.84f, 1.35f), mat);
 
         Child(go.transform, "Rim", PrimitiveType.Cube,
               new Vector3(0f, 0.86f, 0f), new Vector3(1.48f, 0.10f, 1.48f),
@@ -380,6 +375,41 @@ public static class RoomBuilder
         s.Tiling = tiling;
         s.Smoothness = smoothness;
         s.Metallic = metallic;
+    }
+
+    /// <summary>
+    /// Load a generated texture from Assets/Textures and make sure it is imported to
+    /// repeat with mipmaps - a clamped texture shows one stretched copy per face.
+    /// Returns null when the file is absent, and callers fall back to flat colour.
+    /// </summary>
+    static Texture2D Tex(string name)
+    {
+        var path = "Assets/Textures/" + name + ".png";
+        var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+        if (tex == null) return null;
+
+        var imp = AssetImporter.GetAtPath(path) as TextureImporter;
+        if (imp != null && (imp.wrapMode != TextureWrapMode.Repeat || !imp.mipmapEnabled))
+        {
+            imp.wrapMode = TextureWrapMode.Repeat;
+            imp.mipmapEnabled = true;
+            imp.anisoLevel = 4;
+            imp.SaveAndReimport();
+            tex = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+        }
+        return tex;
+    }
+
+    static Material Mat(Color c, float smoothness, float metallic, string texName, Vector2 tiling)
+    {
+        var m = Mat(c, smoothness, metallic);
+        var t = Tex(texName);
+        if (t != null)
+        {
+            m.mainTexture = t;            // _BaseMap on URP/Lit
+            m.mainTextureScale = tiling;
+        }
+        return m;
     }
 
     static Material Mat(Color c, float smoothness = 0.2f, float metallic = 0f)
