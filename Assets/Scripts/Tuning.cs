@@ -92,6 +92,12 @@ namespace LaundryMonster
         public const float MonsterPerChairOverflowSecond = 0.5f;
         public const float MonsterMax = 30f;
 
+        // The Monster IS the hamper: dirty laundry is pulled off it, so it is big, and
+        // it visibly shrinks as you clear the backlog.
+        public const float MonsterMinScale = 1.30f;
+        public const float MonsterMaxScale = 2.90f;
+        public const int MonsterFullPile = 10;      // waiting garments that read as "full"
+
         public static float DayLength(int day) => DayBaseLength + DayLengthPerExtraDay * (day - 1);
 
         public static int GarmentsForDay(int day) => SpawnBase + SpawnPerDay * day;

@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>{{{ PRODUCT_NAME }}}</title>
+  <style>
+    html, body {
+      margin: 0; padding: 0; height: 100%;
+      background: #0b0b0f; color: #e8e8ee;
+      font-family: "Rajdhani", "Trebuchet MS", system-ui, sans-serif;
+      overflow: hidden;
+    }
+    #wrap {
+      position: fixed; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    /* The canvas is hidden until BOTH the ident and the download are done, so the
+       player never sees a half-loaded frame or a flash of black. */
+    #unity-canvas {
+      width: {{{ WIDTH }}}px; height: {{{ HEIGHT }}}px;
+      max-width: 100vw; max-height: 100vh;
+      background: {{{ BACKGROUND_COLOR }}};
+      opacity: 0; transition: opacity .35s ease;
+      touch-action: none;
+    }
+    #unity-canvas.ready { opacity: 1; }
+
+    #boot {
+      position: fixed; left: 50%; bottom: 14%;
+      transform: translateX(-50%);
+      width: min(420px, 72vw); text-align: center;
+      opacity: 0; transition: opacity .25s ease; pointer-events: none;
+    }
+    #boot.show { opacity: 1; }
+    #boot-msg { font-size: 15px; letter-spacing: .14em; text-transform: uppercase; opacity: .75; }
+    #boot-bar {
+      margin-top: 10px; height: 4px; border-radius: 2px;
+      background: rgba(255,255,255,.14); overflow: hidden;
+    }
+    #boot-fill { height: 100%; width: 0%; background: #00ffaa; transition: width .15s ease; }
+    #boot-err { margin-top: 10px; font-size: 13px; color: #ff6b6b; }
+
+    #hint {
+      position: fixed; left: 50%; bottom: 3%; transform: translateX(-50%);
+      font-size: 13px; letter-spacing: .08em; opacity: 0;
+      transition: opacity .4s ease; pointer-events: none;
+    }
+    #hint.show { opacity: .5; }
+  </style>
+</head>
+<body>
+  <div id="wrap">
+    <canvas id="unity-canvas" width="{{{ WIDTH }}}" height="{{{ HEIGHT }}}" tabindex="-1"></canvas>
+  </div>
+
+  <div id="boot">
+    <div id="boot-msg">Loading</div>
+    <div id="boot-bar"><div id="boot-fill"></div></div>
+    <div id="boot-err"></div>
+  </div>
+
+  <div id="hint">click the game to give it keyboard focus</div>
+
+  <!--
+    Studio ident. Classic script, loaded before anything else so the overlay can
+    attach on the first paint; it defines window.HallucinatedIntro. Same file the
+    other Hallucinated Games titles play.
+  -->
+  <script src="TemplateData/hallucinated-intro.js"></script>
+
+  <script src="Build/{{{ LOADER_FILENAME }}}"></script>
+  <script>
+  (function () {
+    var params = new URLSearchParams(location.search);
+
+    var canvas = document.querySelector("#unity-canvas");
+    var boot = document.querySelector("#boot");
+    var bootFill = document.querySelector("#boot-fill");
+    var bootMsg = document.querySelector("#boot-msg");
+    var bootErr = document.querySelector("#boot-err");
+    var hint = document.querySelector("#hint");
+
+    // The ident and the download run CONCURRENTLY. A Unity WebGL build is tens of
+    // megabytes, so playing the logo and then starting the download would add its
+    // 4.6s to the wait. Started together, the ident covers the load instead of
+    // adding to it, and the canvas is revealed when both finish.
+    var introDone = (function () {
+      try {
+        if (params.has("nointro") || params.has("debug") || !window.HallucinatedIntro) {
+          return Promise.resolve({ skipped: true });
+        }
+        return window.HallucinatedIntro.play({
+          skippable: true,
+          // A WebAudio sting needs a prior user gesture; a cold page load has none,
+          // so it would be dropped silently.
+          sound: false,
+        }).catch(function () { return { skipped: true }; });
+      } catch (e) {
+        return Promise.resolve({ skipped: true });
+      }
+    })();
+
+    var unityReady = createUnityInstance(canvas, {
+      arguments: [],
+      dataUrl: "Build/{{{ DATA_FILENAME }}}",
+      frameworkUrl: "Build/{{{ FRAMEWORK_FILENAME }}}",
+      codeUrl: "Build/{{{ CODE_FILENAME }}}",
+      streamingAssetsUrl: "StreamingAssets",
+      companyName: {{{ JSON.stringify(COMPANY_NAME) }}},
+      productName: {{{ JSON.stringify(PRODUCT_NAME) }}},
+      productVersion: {{{ JSON.stringify(PRODUCT_VERSION) }}},
+    }, function (progress) {
+      bootFill.style.width = (progress * 100).toFixed(1) + "%";
+    });
+
+    // If the ident finishes first, show the modest progress bar for the rest.
+    introDone.then(function () {
+      var settled = false;
+      unityReady.then(function () { settled = true; }, function () { settled = true; });
+      Promise.resolve().then(function () {
+        if (!settled) boot.classList.add("show");
+      });
+    });
+
+    Promise.all([introDone, unityReady]).then(function (results) {
+      boot.classList.remove("show");
+      canvas.classList.add("ready");
+      canvas.focus();
+      hint.classList.add("show");
+      setTimeout(function () { hint.classList.remove("show"); }, 6000);
+
+      window.__unity = results[1];
+      window.__gameReady = true;
+    }).catch(function (message) {
+      boot.classList.add("show");
+      bootMsg.textContent = "Failed to load";
+      bootErr.textContent = String(message);
+      console.error("[LaundryMonster] load failed:", message);
+    });
+
+    // Keyboard focus: the game reads WASD, so the canvas must hold focus.
+    window.addEventListener("pointerdown", function () {
+      try { canvas.focus(); } catch (e) {}
+    });
+  })();
+  </script>
+</body>
+</html>

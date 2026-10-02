@@ -57,10 +57,11 @@ namespace LaundryMonster
             if (col != null) Destroy(col);
 
             _pad = disc.transform;
-            _pad.SetParent(transform, false);
-
-            // Sit just above the floor, in world space, regardless of how tall the prop is.
+            // Sibling, not child: the Monster is scaled and rotated every frame by its
+            // animator, and a child pad would be dragged around with it.
+            _pad.SetParent(transform.parent, true);
             _pad.position = new Vector3(transform.position.x, 0.03f, transform.position.z);
+            _pad.localRotation = Quaternion.identity;
             // Must be wider than the prop itself or the prop hides it completely.
             _pad.localScale = new Vector3(PadSize, 0.012f, PadSize);
 

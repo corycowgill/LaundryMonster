@@ -175,6 +175,8 @@ namespace LaundryMonster
                 if (_holdTimer >= need)
                 {
                     Nearest.HoldInteract(this);
+                    var ha = GetComponent<CharacterAnimator>();
+                    if (ha != null) ha.Grab();
                     _holdTimer = 0f;        // keep holding to repeat
                     HoldProgress = 0f;
                     _holdConsumed = true;   // do not also fire the tap on release
@@ -189,7 +191,12 @@ namespace LaundryMonster
             else if (hasTap && hasHold && InteractReleased())
             {
                 // Tapped and let go before the hold completed -> treat it as the tap action.
-                if (!_holdConsumed && _holdTimer > 0f) Nearest.Interact(this);
+                if (!_holdConsumed && _holdTimer > 0f)
+                {
+                    Nearest.Interact(this);
+                    var ta = GetComponent<CharacterAnimator>();
+                    if (ta != null) ta.Grab();
+                }
             }
 
             if (InteractReleased()) _holdConsumed = false;

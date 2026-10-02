@@ -68,10 +68,6 @@ public static class RoomBuilder
         Box(root.transform, "Skirt_Right", new Vector3(8.06f, 0.09f, 1f),  new Vector3(0.12f, 0.18f, 13f), trimMat);
 
         // ---- stations ----
-        var hamper = MakeHamper(root.transform, new Vector3(-6.5f, 0f, 5.4f), hamperMat);
-        var hamperComp = hamper.AddComponent<Hamper>();
-        hamperComp.InteractRadius = 2.0f;
-        hamper.AddComponent<LaundryMonster.Highlighter>();
 
         MakeMachine(root.transform, "Washer_A", new Vector3(-3.0f, 0f, 5.5f), washerMat, glassMat, panelMat, chromeMat, LaundryMachine.Mode.Washer);
         MakeMachine(root.transform, "Washer_B", new Vector3(-0.5f, 0f, 5.5f), washerMat, glassMat, panelMat, chromeMat, LaundryMachine.Mode.Washer);
@@ -107,9 +103,14 @@ public static class RoomBuilder
             Child(monsterRoot.transform, "Lump", PrimitiveType.Sphere,
                   new Vector3(-0.40f, -0.20f, -0.25f), Vector3.one * 0.70f, monsterMat);
         }
-        monsterRoot.transform.position = new Vector3(-6.6f, 0f, 1.6f);
-        monsterRoot.transform.localScale = Vector3.one * 0.45f;
+        // The Monster is where dirty laundry comes from: you pull clothes off it.
+        monsterRoot.transform.position = new Vector3(-5.9f, 0f, 4.6f);
+        monsterRoot.transform.localScale = Vector3.one * Tuning.MonsterMinScale;
         monsterRoot.AddComponent<MonsterAnimator>();
+
+        var hamperComp = monsterRoot.AddComponent<Hamper>();
+        hamperComp.InteractRadius = 2.9f;          // it is big, so reach it from further out
+        monsterRoot.AddComponent<LaundryMonster.Highlighter>();
 
         // ---- player ----
         var player = new GameObject("Player");
@@ -117,6 +118,9 @@ public static class RoomBuilder
         BuildPlayer(player.transform, shirtMat, skinMat);
         player.AddComponent<PlayerController>();
         player.AddComponent<CharacterAnimator>();
+
+        // ---- set dressing ----
+        BuildDecor(root.transform);
 
         // ---- lighting ----
         var lighting = new GameObject("Lighting");
@@ -130,6 +134,16 @@ public static class RoomBuilder
 
         dir.GarmentMesh = LoadModelMesh("Assets/Models/folded/folded.fbx");
 
+        // Enum order: Shirt, Pants, Towel, Sock, Delicate.
+        var garmentFiles = new[] { "g_shirt", "g_jeans", "g_towel", "g_socks", "g_undies" };
+        dir.GarmentMeshes = new Mesh[garmentFiles.Length];
+        for (int i = 0; i < garmentFiles.Length; i++)
+        {
+            dir.GarmentMeshes[i] = LoadModelMesh($"Assets/Models/{garmentFiles[i]}/{garmentFiles[i]}.fbx");
+            if (dir.GarmentMeshes[i] == null)
+                Debug.LogWarning("RoomBuilder: missing garment mesh " + garmentFiles[i]);
+        }
+
         var spawnParent = new GameObject("Garments");
         spawnParent.transform.SetParent(root.transform, false);
         dir.GarmentSpawnParent = spawnParent.transform;
@@ -141,8 +155,193 @@ public static class RoomBuilder
         EditorSceneManager.SaveScene(scene);
         AssetDatabase.SaveAssets();
 
-        return "Room rebuilt: detailed machines, chair, closet, fold table, sock drawer, "
-             + "hamper, monster, player, 4-light rig, textured surfaces, highlight pads.";
+        return "Room rebuilt: machines, chair, closet, fold table, sock drawer, monster-as-hamper, "
+             + "player, 4-light rig, textured surfaces, highlight pads, and set dressing.";
+    }
+
+
+    /// <summary>
+    /// Set dressing. None of it is interactive - it exists so the room reads as a
+    /// laundry room rather than a grid of stations on a floor.
+    /// </summary>
+    static void BuildDecor(Transform root)
+    {
+        var plastic = Mat(new Color(0.90f, 0.92f, 0.95f), 0.55f);
+        var dark    = Mat(new Color(0.20f, 0.21f, 0.24f), 0.35f);
+        var steel   = Mat(new Color(0.72f, 0.74f, 0.78f), 0.8f, 0.85f);
+        var white   = Mat(new Color(0.94f, 0.94f, 0.92f), 0.3f);
+
+        var decor = new GameObject("Decor");
+        decor.transform.SetParent(root, false);
+        var d = decor.transform;
+
+        // --- detergent bottles and boxes on top of the machines ---
+        var bottleCols = new[]
+        {
+            new Color(0.25f, 0.55f, 0.85f), new Color(0.90f, 0.45f, 0.20f),
+            new Color(0.35f, 0.72f, 0.45f), new Color(0.85f, 0.30f, 0.45f),
+            new Color(0.95f, 0.80f, 0.25f),
+        };
+        var tops = new[] { -3.0f, -0.5f, 2.5f, 5.0f };
+        for (int i = 0; i < tops.Length; i++)
+        {
+            float x = tops[i] + (i % 2 == 0 ? 0.42f : -0.40f);
+            var col = bottleCols[i % bottleCols.Length];
+            Child(d, "Detergent", PrimitiveType.Cylinder,
+                  new Vector3(x, 1.44f, 5.55f), new Vector3(0.17f, 0.16f, 0.17f), Mat(col, 0.5f));
+            Child(d, "Cap", PrimitiveType.Cylinder,
+                  new Vector3(x, 1.63f, 5.55f), new Vector3(0.10f, 0.04f, 0.10f), white);
+            if (i % 2 == 0)
+                Child(d, "SoapBox", PrimitiveType.Cube,
+                      new Vector3(tops[i] - 0.45f, 1.42f, 5.5f), new Vector3(0.3f, 0.36f, 0.22f),
+                      Mat(bottleCols[(i + 2) % bottleCols.Length], 0.2f));
+        }
+
+        // --- wall shelf above the machines, with more supplies ---
+        Child(d, "Shelf", PrimitiveType.Cube, new Vector3(0.5f, 2.15f, 7.25f),
+              new Vector3(8.5f, 0.09f, 0.55f), Mat(new Color(0.80f, 0.74f, 0.62f), 0.2f));
+        foreach (var bx in new[] { -2.6f, -1.4f, 0.4f, 1.9f, 3.1f })
+            Child(d, "ShelfBottle", PrimitiveType.Cylinder,
+                  new Vector3(bx, 2.34f, 7.25f), new Vector3(0.14f, 0.14f, 0.14f),
+                  Mat(bottleCols[Mathf.Abs(bx.GetHashCode()) % bottleCols.Length], 0.45f));
+
+        // --- wall clock: you are always watching the time in here ---
+        var clock = Child(d, "Clock", PrimitiveType.Cylinder,
+                          new Vector3(6.6f, 2.25f, 7.33f), new Vector3(0.52f, 0.05f, 0.52f), white);
+        clock.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+        var rim = Child(d, "ClockRim", PrimitiveType.Cylinder,
+                        new Vector3(6.6f, 2.25f, 7.37f), new Vector3(0.60f, 0.04f, 0.60f), dark);
+        rim.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+        Child(d, "ClockHand", PrimitiveType.Cube,
+              new Vector3(6.6f, 2.38f, 7.29f), new Vector3(0.04f, 0.22f, 0.02f), dark);
+        Child(d, "ClockHand2", PrimitiveType.Cube,
+              new Vector3(6.72f, 2.25f, 7.29f), new Vector3(0.24f, 0.035f, 0.02f), dark);
+
+        // --- plumbing along the back wall ---
+        Child(d, "Pipe", PrimitiveType.Cylinder, new Vector3(0f, 2.55f, 7.3f),
+              new Vector3(0.11f, 8.2f, 0.11f), steel).transform.localRotation =
+              Quaternion.Euler(0f, 0f, 90f);
+        foreach (var px in new[] { -6.5f, -2.0f, 3.0f, 7.0f })
+            Child(d, "PipeBracket", PrimitiveType.Cube, new Vector3(px, 2.55f, 7.42f),
+                  new Vector3(0.16f, 0.2f, 0.16f), dark);
+        Child(d, "Downpipe", PrimitiveType.Cylinder, new Vector3(-7.9f, 1.4f, 7.3f),
+              new Vector3(0.11f, 1.4f, 0.11f), steel);
+
+        // --- ceiling strip light housings, where the point lights actually are ---
+        foreach (var lx in new[] { -3.2f, 3.2f })
+        {
+            Child(d, "LightHousing", PrimitiveType.Cube, new Vector3(lx, 3.22f, 3.2f),
+                  new Vector3(2.6f, 0.12f, 0.45f), dark);
+            Child(d, "LightTube", PrimitiveType.Cylinder, new Vector3(lx, 3.13f, 3.2f),
+                  new Vector3(0.11f, 1.2f, 0.11f), Mat(new Color(1f, 1f, 0.95f), 0.1f))
+                .transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
+        }
+
+        // --- floor drain, because every laundry room has one ---
+        var drain = Child(d, "Drain", PrimitiveType.Cylinder, new Vector3(2.0f, 0.012f, 1.2f),
+                          new Vector3(0.55f, 0.012f, 0.55f), dark);
+        Child(d, "DrainRim", PrimitiveType.Cylinder, new Vector3(2.0f, 0.008f, 1.2f),
+              new Vector3(0.68f, 0.008f, 0.68f), steel);
+
+        // --- spare baskets stacked in the corner ---
+        for (int i = 0; i < 2; i++)
+        {
+            var b = AddModel(d, "SpareBasket", "basket",
+                             new Vector3(7.3f, i * 0.55f, -3.6f),
+                             Quaternion.Euler(0f, ModelYaw + i * 40f, 0f), Color.white, 0.12f);
+            if (b == null)
+                Child(d, "SpareBasket", PrimitiveType.Cube,
+                      new Vector3(7.3f, 0.4f + i * 0.55f, -3.6f),
+                      new Vector3(1.0f, 0.7f, 1.0f), plastic);
+        }
+
+        // --- an ironing board nobody ever puts away ---
+        var board = Child(d, "IroningBoard", PrimitiveType.Cube, new Vector3(-7.3f, 0.85f, -0.4f),
+                          new Vector3(0.62f, 0.08f, 2.3f), white);
+        board.transform.localRotation = Quaternion.Euler(0f, 0f, 6f);
+        Child(d, "BoardLeg", PrimitiveType.Cylinder, new Vector3(-7.3f, 0.42f, 0.45f),
+              new Vector3(0.07f, 0.42f, 0.07f), steel);
+        Child(d, "BoardLeg", PrimitiveType.Cylinder, new Vector3(-7.3f, 0.42f, -1.2f),
+              new Vector3(0.07f, 0.42f, 0.07f), steel);
+
+        // --- a few stray socks on the floor, which is the whole premise ---
+        var sockMesh = LoadModelMesh("Assets/Models/g_socks/g_socks.fbx");
+        var strayCols = new[]
+        {
+            new Color(0.85f, 0.35f, 0.35f), new Color(0.35f, 0.5f, 0.8f),
+            new Color(0.95f, 0.85f, 0.4f), new Color(0.4f, 0.7f, 0.5f),
+        };
+        var strayAt = new[]
+        {
+            new Vector3(-1.9f, 0.02f, -3.4f), new Vector3(5.6f, 0.02f, 2.1f),
+            new Vector3(-4.6f, 0.02f, 0.2f),  new Vector3(1.2f, 0.02f, 6.4f),
+        };
+        for (int i = 0; i < strayAt.Length; i++)
+        {
+            GameObject so;
+            if (sockMesh != null)
+            {
+                so = new GameObject("StraySock");
+                so.transform.SetParent(d, false);
+                so.AddComponent<MeshFilter>().sharedMesh = sockMesh;
+                so.AddComponent<MeshRenderer>().sharedMaterial = Mat(strayCols[i], 0.2f);
+            }
+            else
+            {
+                so = Child(d, "StraySock", PrimitiveType.Cube, Vector3.zero,
+                           new Vector3(0.22f, 0.08f, 0.3f), Mat(strayCols[i], 0.2f));
+            }
+            so.transform.position = strayAt[i];
+            so.transform.localRotation = Quaternion.Euler(0f, i * 57f, 0f);
+        }
+
+        // --- a sign on the back wall ---
+        Child(d, "SignBoard", PrimitiveType.Cube, new Vector3(-5.0f, 2.3f, 7.33f),
+              new Vector3(2.4f, 0.62f, 0.07f), Mat(new Color(0.22f, 0.38f, 0.55f), 0.3f));
+        Child(d, "SignStripe", PrimitiveType.Cube, new Vector3(-5.0f, 2.08f, 7.30f),
+              new Vector3(2.0f, 0.07f, 0.03f), white);
+        Child(d, "SignStripe2", PrimitiveType.Cube, new Vector3(-5.0f, 2.52f, 7.30f),
+              new Vector3(2.0f, 0.07f, 0.03f), white);
+    }
+
+
+    /// <summary>
+    /// Instantiate a rigged model, keeping its armature. A skinned mesh cannot be dropped
+    /// in via MeshFilter the way a static one can - it needs its bone hierarchy, so the
+    /// whole imported object gets instantiated.
+    /// </summary>
+    static GameObject AddRiggedModel(Transform parent, string name, string folder,
+                                     Vector3 localPos, Quaternion localRot, Color tint, float smoothness)
+    {
+        var path = $"Assets/Models/{folder}/{folder}.fbx";
+
+        // Generic rig, no clips: we drive the bones ourselves from code.
+        var imp = AssetImporter.GetAtPath(path) as ModelImporter;
+        if (imp != null && (imp.animationType != ModelImporterAnimationType.Generic || imp.importAnimation))
+        {
+            imp.animationType = ModelImporterAnimationType.Generic;
+            imp.importAnimation = false;
+            imp.SaveAndReimport();
+        }
+
+        var src = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+        if (src == null) return null;
+
+        var go = (GameObject)Object.Instantiate(src, parent);
+        go.name = name;
+        go.transform.localPosition = localPos;
+        go.transform.localRotation = localRot;
+        go.transform.localScale = Vector3.one;
+
+        var skin = go.GetComponentInChildren<SkinnedMeshRenderer>();
+        if (skin == null) { Object.DestroyImmediate(go); return null; }
+
+        var mat = Mat(tint, smoothness);
+        var tex = AssetDatabase.LoadAssetAtPath<Texture2D>($"Assets/Models/{folder}/material_0.png");
+        if (tex != null) mat.mainTexture = tex;
+        skin.sharedMaterial = mat;
+        skin.updateWhenOffscreen = true;
+        return go;
     }
 
     // ---------- props ----------
@@ -346,6 +545,10 @@ public static class RoomBuilder
 
     static void BuildPlayer(Transform root, Material shirt, Material skin)
     {
+        // Rigged first: the hero needs limbs that move independently.
+        if (AddRiggedModel(root, "Model", "person", Vector3.zero,
+                           Quaternion.Euler(0f, ModelYaw, 0f), Color.white, 0.15f) != null)
+            return;
         if (AddModel(root, "Model", "person", Vector3.zero,
                      Quaternion.Euler(0f, ModelYaw, 0f), Color.white, 0.15f) != null)
             return;

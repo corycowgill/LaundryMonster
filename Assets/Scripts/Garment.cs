@@ -38,6 +38,27 @@ namespace LaundryMonster
         /// <summary>Socks only: its partner went to the Void. It can never be matched.</summary>
         public bool Orphan;
 
+        /// <summary>This garment's own colour. State modulates it rather than replacing it,
+        /// so a red shirt stays recognisably a red shirt whether it is dirty, wet or folded.</summary>
+        public Color BaseColor = Color.white;
+
+        /// <summary>The laundry palette. Deliberately a believable wash load.</summary>
+        public static readonly Color[] Palette =
+        {
+            new Color(0.95f, 0.95f, 0.93f),  // white
+            new Color(0.93f, 0.88f, 0.76f),  // cream
+            new Color(0.45f, 0.62f, 0.85f),  // light blue
+            new Color(0.20f, 0.28f, 0.52f),  // navy
+            new Color(0.80f, 0.30f, 0.30f),  // red
+            new Color(0.35f, 0.62f, 0.42f),  // green
+            new Color(0.93f, 0.78f, 0.32f),  // yellow
+            new Color(0.88f, 0.58f, 0.70f),  // pink
+            new Color(0.45f, 0.45f, 0.50f),  // grey
+            new Color(0.55f, 0.42f, 0.72f),  // purple
+            new Color(0.75f, 0.45f, 0.25f),  // rust
+            new Color(0.25f, 0.55f, 0.58f),  // teal
+        };
+
         public bool IsSock => Kind == GarmentKind.Sock;
 
         /// <summary>A lone sock cannot be folded or put away. That is the whole problem.</summary>
@@ -124,16 +145,17 @@ namespace LaundryMonster
         {
             if (_mat == null) return;
 
-            Color c;
+            Color c = BaseColor;
             switch (State)
             {
-                case GarmentState.Dirty:    c = DirtyColor;    break;
-                case GarmentState.Wet:      c = WetColor;      break;
-                case GarmentState.Mildewed: c = MildewColor;   break;
-                case GarmentState.CleanDry: c = CleanColor;    break;
-                case GarmentState.Wrinkled: c = WrinkledColor; break;
-                case GarmentState.Folded:   c = FoldedColor;   break;
-                default:                    c = RuinedColor;   break;
+                // Grimy and flattened, but still the same garment underneath.
+                case GarmentState.Dirty:    c = Mix(c, new Color(0.34f, 0.30f, 0.22f), 0.50f); break;
+                case GarmentState.Wet:      c = Mix(Darken(c, 0.72f), new Color(0.16f, 0.26f, 0.42f), 0.35f); break;
+                case GarmentState.Mildewed: c = Mix(Darken(c, 0.65f), new Color(0.26f, 0.36f, 0.18f), 0.60f); break;
+                case GarmentState.CleanDry: c = Darken(c, 1.06f); break;
+                case GarmentState.Wrinkled: c = Mix(Desaturate(c, 0.45f), new Color(0.70f, 0.61f, 0.45f), 0.30f); break;
+                case GarmentState.Folded:   c = Darken(c, 1.10f); break;
+                default:                    c = Mix(c, new Color(0.17f, 0.06f, 0.07f), 0.80f); break;
             }
 
             // As a decay clock runs out the garment flushes toward warning amber,
@@ -149,6 +171,17 @@ namespace LaundryMonster
             }
 
             _mat.color = c;
+        }
+
+        static Color Mix(Color a, Color b, float t) => Color.Lerp(a, b, t);
+
+        static Color Darken(Color c, float f) =>
+            new Color(Mathf.Clamp01(c.r * f), Mathf.Clamp01(c.g * f), Mathf.Clamp01(c.b * f), 1f);
+
+        static Color Desaturate(Color c, float t)
+        {
+            float g = c.r * 0.299f + c.g * 0.587f + c.b * 0.114f;
+            return Color.Lerp(c, new Color(g, g, g), t);
         }
 
         public static string StateLabel(GarmentState s)

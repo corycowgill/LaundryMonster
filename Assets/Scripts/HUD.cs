@@ -19,7 +19,8 @@ namespace LaundryMonster
         Image _promptBg;
         readonly List<LaundryMachine> _machines = new List<LaundryMachine>();
         Image _timeFill, _monsterFill, _holdFill;
-        GameObject _holdGroup, _summaryPanel;
+        GameObject _holdGroup, _summaryPanel, _gameplayRoot, _frontPanel;
+        Text _frontText, _frontTitle;
         Text _summaryText;
 
         Font _font;
@@ -62,7 +63,15 @@ namespace LaundryMonster
             scaler.referenceResolution = new Vector2(1920f, 1080f);
             scaler.matchWidthOrHeight = 0.5f;
 
-            var root = canvasGo.transform;
+            var canvasRoot = canvasGo.transform;
+
+            // Everything in-game lives under one object so the front end can hide it all.
+            _gameplayRoot = new GameObject("Gameplay");
+            _gameplayRoot.transform.SetParent(canvasRoot, false);
+            var grt = _gameplayRoot.AddComponent<RectTransform>();
+            grt.anchorMin = Vector2.zero; grt.anchorMax = Vector2.one;
+            grt.offsetMin = Vector2.zero; grt.offsetMax = Vector2.zero;
+            var root = _gameplayRoot.transform;
 
             // --- top left: day + time ---
             _dayText = MakeText(root, "Day", new Vector2(0f, 1f), new Vector2(0f, 1f),
@@ -144,7 +153,7 @@ namespace LaundryMonster
 
             // --- centre: day summary ---
             _summaryPanel = new GameObject("Summary");
-            _summaryPanel.transform.SetParent(root, false);
+            _summaryPanel.transform.SetParent(canvasRoot, false);
             var sp = _summaryPanel.AddComponent<RectTransform>();
             Anchor(sp, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero,
                    new Vector2(760f, 520f), TextAnchor.MiddleCenter);
@@ -156,6 +165,24 @@ namespace LaundryMonster
             _summaryText = MakeText(_summaryPanel.transform, "", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                                     Vector2.zero, new Vector2(700f, 470f), 32, TextAnchor.MiddleCenter);
             _summaryPanel.SetActive(false);
+
+            // --- front end: intro, title, how to play ---
+            _frontPanel = new GameObject("FrontEnd");
+            _frontPanel.transform.SetParent(canvasRoot, false);
+            var fp = _frontPanel.AddComponent<RectTransform>();
+            fp.anchorMin = Vector2.zero; fp.anchorMax = Vector2.one;
+            fp.offsetMin = Vector2.zero; fp.offsetMax = Vector2.zero;
+
+            MakeImage(_frontPanel.transform, Vector2.zero, Vector2.one,
+                      Vector2.zero, Vector2.zero, new Color(0.04f, 0.04f, 0.06f, 0.94f),
+                      TextAnchor.MiddleCenter);
+
+            _frontTitle = MakeText(_frontPanel.transform, "", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                                   new Vector2(0f, -80f), new Vector2(1600f, 150f), 84, TextAnchor.UpperCenter);
+
+            _frontText = MakeText(_frontPanel.transform, "", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                                  new Vector2(0f, -230f), new Vector2(1500f, 760f), 26, TextAnchor.UpperCenter);
+            _frontPanel.SetActive(false);
         }
 
         void Anchor(RectTransform rt, Vector2 aMin, Vector2 aMax, Vector2 pos, Vector2 size, TextAnchor pivotFrom)
@@ -245,11 +272,76 @@ namespace LaundryMonster
             _monsterFill.fillAmount = mFrac;
             _monsterText.text = mFrac > 0.75f ? "MONSTER - it has eyes now" : "MONSTER";
 
+            UpdateFrontEnd();
+            if (_dir.CurrentPhase != Phase.Playing && _dir.CurrentPhase != Phase.DaySummary) return;
+
             UpdateMachines();
             UpdateHint();
             UpdateFlash();
             UpdateCarryAndPrompt();
             UpdateSummary();
+        }
+
+        void UpdateFrontEnd()
+        {
+            var ph = _dir.CurrentPhase;
+            bool front = ph == Phase.Intro || ph == Phase.Title || ph == Phase.Help;
+
+            if (_gameplayRoot != null && _gameplayRoot.activeSelf == front)
+                _gameplayRoot.SetActive(!front);
+            if (_frontPanel != null && _frontPanel.activeSelf != front)
+                _frontPanel.SetActive(front);
+            if (!front) return;
+
+            if (ph == Phase.Intro)
+            {
+                _frontTitle.text = "HALLUCINATED GAMES";
+                _frontTitle.color = new Color(0.85f, 0.88f, 1f);
+                _frontText.text = "\n\npresents\n\n\n\n\n\npress any key to skip";
+                return;
+            }
+
+            if (ph == Phase.Title)
+            {
+                _frontTitle.text = "LAUNDRY MONSTER";
+                _frontTitle.color = new Color(1f, 0.86f, 0.35f);
+                _frontText.text =
+                    "the laundry never ends\n\n\n" +
+                    "[ SPACE ]   start a new run\n" +
+                    "[ H ]       how to play\n\n\n" +
+                    "--------  BEST  --------\n" +
+                    "score         " + HighScores.BestScore.ToString("0.#") + "\n" +
+                    "day reached   " + HighScores.BestDay + "\n" +
+                    "put away      " + HighScores.BestDelivered + "\n" +
+                    "stars earned  " + HighScores.TotalStars + "\n" +
+                    "runs          " + HighScores.Runs;
+                return;
+            }
+
+            _frontTitle.text = "HOW TO PLAY";
+            _frontTitle.color = new Color(0.75f, 0.9f, 1f);
+            _frontText.text =
+                "WASD or arrows to move.   E to interact.   Some things need E HELD.\n\n" +
+                "THE LOOP\n" +
+                "  Pull dirty clothes off the MONSTER  ->  WASHER (blue lid)  ->  DRYER (orange lid)\n" +
+                "  ->  HOLD E at the FOLD TABLE  ->  put it away in the CLOSET. Only the closet scores.\n\n" +
+                "THE WRINKLE CLOCK\n" +
+                "  The moment a dryer stops, its load starts wrinkling. Fold it in " + Tuning.WrinkleGrace + "s.\n" +
+                "  Wet laundry mildews in " + Tuning.MildewGrace + "s. You will hear it ticking.\n\n" +
+                "POCKETS\n" +
+                "  Pants always have them. HOLD E at a washer to check first, for " + Tuning.PocketCheckHold + "s.\n" +
+                "  Skip it and most loads are fine. The rest cost a wallet, a crayon, or your AirPods.\n\n" +
+                "LINT\n" +
+                "  Every dry cycle clogs the trap. HOLD E at a dryer to empty it.\n" +
+                "  It never helps the load in front of you. At 8 it can catch fire. At 10 the run ends.\n\n" +
+                "SOCKS\n" +
+                "  A lone sock cannot be folded. Match pairs at the SOCK DRAWER.\n" +
+                "  Every wash may send one sock to the Void. You will never reach zero.\n\n" +
+                "THE CHAIR\n" +
+                "  Dump laundry there when you are drowning. It wrinkles twice as fast there,\n" +
+                "  and when it overflows it feeds the Monster.\n\n" +
+                "THE MONSTER grows from all you fail to finish. Let it fill and the run is over.\n\n\n" +
+                "[ SPACE ] back";
         }
 
         void UpdateMachines()
@@ -415,7 +507,13 @@ namespace LaundryMonster
                     "THE LAUNDRY WON\n\n" +
                     "It was never going to stop.\n" +
                     "You made it to day " + _dir.Day + ".\n\n" +
-                    "press SPACE to start over";
+                    "run score   " + _dir.RunScore.ToString("0.#") + "\n" +
+                    "put away    " + _dir.RunDelivered + "\n" +
+                    "stars       " + _dir.RunStars + "\n\n" +
+                    (_dir.NewRecord
+                        ? "*** NEW BEST SCORE ***\n\n"
+                        : "best " + HighScores.BestScore.ToString("0.#") + "\n\n") +
+                    "press SPACE";
                 return;
             }
 

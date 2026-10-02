@@ -4,7 +4,7 @@ using UnityEngine.InputSystem;
 
 namespace LaundryMonster
 {
-    public enum Phase { Playing, DaySummary, RunOver }
+    public enum Phase { Intro, Title, Help, Playing, DaySummary, RunOver }
 
     /// <summary>
     /// Runs the day: spawns laundry, ticks every decay clock, scores deliveries,
@@ -22,6 +22,10 @@ namespace LaundryMonster
         /// <summary>Generated folded-laundry mesh. Falls back to a cube when unset.</summary>
         public Mesh GarmentMesh;
 
+        /// <summary>One mesh per GarmentKind, in enum order: Shirt, Pants, Towel, Sock, Delicate.
+        /// Any null entry falls back to GarmentMesh, then to a cube.</summary>
+        public Mesh[] GarmentMeshes = new Mesh[5];
+
         [Header("Run state")]
         public int Day = 1;
         public Phase CurrentPhase = Phase.Playing;
@@ -36,6 +40,12 @@ namespace LaundryMonster
         public float Monster;
 
         public int Stars { get; private set; }
+
+        /// <summary>Score accumulated across every day of this run, for the high score table.</summary>
+        public float RunScore;
+        public int RunDelivered;
+        public int RunStars;
+        public bool NewRecord;
 
         /// <summary>Short on-screen message. A gamble the player cannot read teaches nothing.</summary>
         public string FlashMessage = "";
@@ -53,8 +63,14 @@ namespace LaundryMonster
         /// <summary>End the run immediately. A ten-lint dryer fire does this.</summary>
         public void EndRun()
         {
+            if (CurrentPhase == Phase.RunOver) return;
             CurrentPhase = Phase.RunOver;
             SfxPlayer.Play(Sfx.RunOver, 1f);
+
+            // The day in progress still counts toward the run.
+            RunScore += Score;
+            RunDelivered += Delivered;
+            NewRecord = HighScores.SubmitRun(RunScore, Day, RunDelivered, RunStars);
         }
 
         /// <summary>A sock was absorbed into its pair, or made into a rag. Not a loss.</summary>
@@ -117,6 +133,17 @@ namespace LaundryMonster
                     r.sharedMaterial = _monsterMat;
                 }
             }
+            CurrentPhase = Phase.Title;
+        }
+
+        /// <summary>Start a brand new run from the title screen.</summary>
+        public void StartRun()
+        {
+            Monster = 0f;
+            RunScore = 0f;
+            RunDelivered = 0;
+            RunStars = 0;
+            NewRecord = false;
             BeginDay(1);
         }
 
@@ -179,13 +206,38 @@ namespace LaundryMonster
         {
             if (FlashTimer > 0f) FlashTimer -= Time.deltaTime;
 
-            if (CurrentPhase == Phase.Playing) TickDay();
-            else if (Keyboard.current != null &&
-                     (Keyboard.current.spaceKey.wasPressedThisFrame ||
-                      Keyboard.current.enterKey.wasPressedThisFrame))
+            if (CurrentPhase == Phase.Playing) { TickDay(); return; }
+
+            var kb = Keyboard.current;
+            if (kb == null) return;
+
+            bool go = kb.spaceKey.wasPressedThisFrame || kb.enterKey.wasPressedThisFrame;
+            bool help = kb.hKey.wasPressedThisFrame;
+            bool back = kb.escapeKey.wasPressedThisFrame;
+
+            switch (CurrentPhase)
             {
-                if (CurrentPhase == Phase.DaySummary) BeginDay(Day + 1);
-                else { Monster = 0f; BeginDay(1); }
+                case Phase.Intro:
+                    // Any key skips the intro.
+                    if (go || help || back || kb.anyKey.wasPressedThisFrame) CurrentPhase = Phase.Title;
+                    break;
+
+                case Phase.Title:
+                    if (go) StartRun();
+                    else if (help) CurrentPhase = Phase.Help;
+                    break;
+
+                case Phase.Help:
+                    if (go || back || help) CurrentPhase = Phase.Title;
+                    break;
+
+                case Phase.DaySummary:
+                    if (go) BeginDay(Day + 1);
+                    break;
+
+                case Phase.RunOver:
+                    if (go) CurrentPhase = Phase.Title;
+                    break;
             }
         }
 
@@ -219,12 +271,7 @@ namespace LaundryMonster
             TickWarning(mostUrgent, dt);
             UpdateMonsterVisual();
 
-            if (Monster >= Tuning.MonsterMax)
-            {
-                CurrentPhase = Phase.RunOver;
-                SfxPlayer.Play(Sfx.RunOver, 1f);
-                return;
-            }
+            if (Monster >= Tuning.MonsterMax) { EndRun(); return; }
 
             if (DayTimer >= DayLength) EndDay();
         }
@@ -257,11 +304,16 @@ namespace LaundryMonster
             CurrentPhase = Phase.DaySummary;
             SfxPlayer.Play(Sfx.DayEnd, 0.9f);
 
+            RunScore += Score;
+            RunDelivered += Delivered;
+
             float frac = Target <= 0f ? 1f : Score / Target;
             if (frac >= 1f) Stars = 3;
             else if (frac >= Tuning.StarTwoFraction) Stars = 2;
             else if (frac >= Tuning.StarOneFraction) Stars = 1;
             else Stars = 0;
+
+            RunStars += Stars;
         }
 
         int _nextPairId;
@@ -287,16 +339,18 @@ namespace LaundryMonster
             GameObject go;
             Renderer rend;
 
-            if (GarmentMesh != null)
+            var kindMesh = GarmentMeshes != null && (int)kind < GarmentMeshes.Length
+                ? GarmentMeshes[(int)kind] : null;
+            if (kindMesh == null) kindMesh = GarmentMesh;
+
+            if (kindMesh != null)
             {
                 go = new GameObject("Garment_" + kind);
-                go.AddComponent<MeshFilter>().sharedMesh = GarmentMesh;
+                go.AddComponent<MeshFilter>().sharedMesh = kindMesh;
                 rend = go.AddComponent<MeshRenderer>();
                 // The mesh ships untextured on purpose: Garment tints the material to show
                 // state, and a photographic texture underneath would muddy those colours.
-                go.transform.localScale = kind == GarmentKind.Sock
-                    ? new Vector3(0.55f, 0.75f, 0.55f)
-                    : Vector3.one;
+                go.transform.localScale = Vector3.one;
             }
             else
             {
@@ -318,6 +372,7 @@ namespace LaundryMonster
 
             var g = go.AddComponent<Garment>();
             g.Kind = kind;
+            g.BaseColor = Garment.Palette[Random.Range(0, Garment.Palette.Length)];
             g.State = GarmentState.Dirty;
             g.HasPockets = kind == GarmentKind.Pants || Random.value < Tuning.PocketChanceOnNonPants;
 
@@ -361,8 +416,14 @@ namespace LaundryMonster
         {
             if (MonsterPile == null) return;
 
-            float f = Monster / Tuning.MonsterMax;
-            float s = Mathf.Lerp(0.45f, 2.0f, f);
+            // Two things make it big: how much you have neglected, and how much dirty
+            // laundry is still piled on it. Taking clothes off it visibly shrinks it.
+            float neglect = Monster / Tuning.MonsterMax;
+            float pending = Hamper == null
+                ? 0f
+                : Mathf.Clamp01(Hamper.Waiting.Count / (float)Tuning.MonsterFullPile);
+            float f = Mathf.Clamp01(neglect * 0.6f + pending * 0.55f);
+            float s = Mathf.Lerp(Tuning.MonsterMinScale, Tuning.MonsterMaxScale, f);
 
             // Hand the size to the animator, which eases and adds the wobble. Setting
             // localScale here would fight it every frame.

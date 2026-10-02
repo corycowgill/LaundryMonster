@@ -47,8 +47,17 @@ public static class Builder
         Directory.CreateDirectory(dir);
 
         // Keep the download small: this is the target platform.
+        // Custom template: carries the Hallucinated Games ident and starts it in
+        // parallel with the download, so the logo covers load time.
+        PlayerSettings.WebGL.template = "PROJECT:Hallucinated";
         PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Gzip;
         PlayerSettings.WebGL.dataCaching = true;
+
+        // Decompress in JS rather than relying on the host to send
+        // Content-Encoding: gzip. Render (and most static hosts) will not set that
+        // header for pre-compressed files, and without it Unity's loader fails with
+        // a misleading MIME-type error. Costs a little startup time, works anywhere.
+        PlayerSettings.WebGL.decompressionFallback = true;
 
         // Minimal, not High. The room is built from code-created materials, and
         // aggressive stripping removes shaders nothing in the scene statically
