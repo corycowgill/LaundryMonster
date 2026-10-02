@@ -1,0 +1,237 @@
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.InputSystem;
+
+namespace LaundryMonster
+{
+    public enum Phase { Playing, DaySummary, RunOver }
+
+    /// <summary>
+    /// Runs the day: spawns laundry, ticks every decay clock, scores deliveries,
+    /// and grows the Monster out of whatever the player failed to finish.
+    /// </summary>
+    public class GameDirector : MonoBehaviour
+    {
+        public static GameDirector Instance { get; private set; }
+
+        [Header("Scene wiring")]
+        public Hamper Hamper;
+        public Transform MonsterPile;
+        public Transform GarmentSpawnParent;
+
+        [Header("Run state")]
+        public int Day = 1;
+        public Phase CurrentPhase = Phase.Playing;
+
+        public float DayTimer;
+        public float DayLength;
+        public float Score;
+        public int Delivered;
+        public int WrinkledCount;
+        public int MildewedCount;
+        public int RuinedCount;
+        public float Monster;
+
+        public int Stars { get; private set; }
+
+        readonly List<Garment> _all = new List<Garment>();
+        readonly List<float> _spawnTimes = new List<float>();
+        int _spawnIndex;
+        Material _monsterMat;
+
+        public bool AcceptsInput => CurrentPhase == Phase.Playing;
+        public float Target => Tuning.TargetForDay(Day);
+        public float TimeLeft => Mathf.Max(0f, DayLength - DayTimer);
+
+        void Awake()
+        {
+            Instance = this;
+        }
+
+        void Start()
+        {
+            if (MonsterPile != null)
+            {
+                var r = MonsterPile.GetComponentInChildren<Renderer>();
+                if (r != null)
+                {
+                    _monsterMat = new Material(r.sharedMaterial);
+                    r.sharedMaterial = _monsterMat;
+                }
+            }
+            BeginDay(1);
+        }
+
+        public void BeginDay(int day)
+        {
+            Day = day;
+            CurrentPhase = Phase.Playing;
+            DayTimer = 0f;
+            DayLength = Tuning.DayLength(day);
+            Score = 0f;
+            Delivered = 0;
+            WrinkledCount = 0;
+            MildewedCount = 0;
+            RuinedCount = 0;
+            Stars = 0;
+
+            // Clear anything left over from the previous day. Stations hold their own
+            // references, so they must be emptied too or day 2 works from dead objects.
+            foreach (var g in _all) if (g != null) Destroy(g.gameObject);
+            _all.Clear();
+
+            if (Hamper != null) Hamper.Waiting.Clear();
+
+            foreach (var m in Object.FindObjectsByType<LaundryMachine>())
+            {
+                m.Contents.Clear();
+                m.Running = false;
+                m.Timer = 0f;
+            }
+
+            foreach (var c in Object.FindObjectsByType<Chair>())
+                c.Pile.Clear();
+
+            var player = Object.FindAnyObjectByType<PlayerController>();
+            if (player != null) player.Carried.Clear();
+
+            // Spread the day's laundry across the first 70% of it, so the back half
+            // is about finishing rather than starting.
+            _spawnTimes.Clear();
+            _spawnIndex = 0;
+            int count = Tuning.GarmentsForDay(day);
+            for (int i = 0; i < count; i++)
+                _spawnTimes.Add(DayLength * 0.70f * (i / (float)Mathf.Max(1, count - 1)));
+        }
+
+        void Update()
+        {
+            if (CurrentPhase == Phase.Playing) TickDay();
+            else if (Keyboard.current != null &&
+                     (Keyboard.current.spaceKey.wasPressedThisFrame ||
+                      Keyboard.current.enterKey.wasPressedThisFrame))
+            {
+                if (CurrentPhase == Phase.DaySummary) BeginDay(Day + 1);
+                else { Monster = 0f; BeginDay(1); }
+            }
+        }
+
+        void TickDay()
+        {
+            float dt = Time.deltaTime;
+            DayTimer += dt;
+
+            while (_spawnIndex < _spawnTimes.Count && DayTimer >= _spawnTimes[_spawnIndex])
+            {
+                SpawnGarment();
+                _spawnIndex++;
+            }
+
+            for (int i = _all.Count - 1; i >= 0; i--)
+            {
+                var g = _all[i];
+                if (g == null) { _all.RemoveAt(i); continue; }
+                g.Tick(dt);
+            }
+
+            UpdateMonsterVisual();
+
+            if (Monster >= Tuning.MonsterMax)
+            {
+                CurrentPhase = Phase.RunOver;
+                return;
+            }
+
+            if (DayTimer >= DayLength) EndDay();
+        }
+
+        void EndDay()
+        {
+            CurrentPhase = Phase.DaySummary;
+
+            float frac = Target <= 0f ? 1f : Score / Target;
+            if (frac >= 1f) Stars = 3;
+            else if (frac >= Tuning.StarTwoFraction) Stars = 2;
+            else if (frac >= Tuning.StarOneFraction) Stars = 1;
+            else Stars = 0;
+        }
+
+        void SpawnGarment()
+        {
+            var kind = (GarmentKind)Random.Range(0, 5);
+
+            var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            go.name = "Garment_" + kind;
+            if (GarmentSpawnParent != null) go.transform.SetParent(GarmentSpawnParent, false);
+
+            // Flat and slightly wide, so a stack of them reads as folded laundry.
+            go.transform.localScale = kind == GarmentKind.Sock
+                ? new Vector3(0.22f, 0.10f, 0.30f)
+                : new Vector3(0.46f, 0.13f, 0.36f);
+
+            var col = go.GetComponent<Collider>();
+            if (col != null) Destroy(col);
+
+            var rend = go.GetComponent<Renderer>();
+            var rp = UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline;
+            if (rp != null && rp.defaultMaterial != null)
+                rend.sharedMaterial = new Material(rp.defaultMaterial);
+            rend.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+
+            var g = go.AddComponent<Garment>();
+            g.Kind = kind;
+            g.State = GarmentState.Dirty;
+            g.HasPockets = kind == GarmentKind.Pants || Random.value < 0.15f;
+
+            _all.Add(g);
+            if (Hamper != null) Hamper.Add(g);
+        }
+
+        public void Deliver(Garment g)
+        {
+            Score += g.FoldedWrinkled ? Tuning.PointsWrinkled : Tuning.PointsClean;
+            Delivered++;
+            _all.Remove(g);
+        }
+
+        public void OnGarmentSpoiled(Garment g, GarmentState newState)
+        {
+            if (newState == GarmentState.Wrinkled)
+            {
+                WrinkledCount++;
+                AddMonster(Tuning.MonsterPerWrinkled);
+            }
+            else if (newState == GarmentState.Mildewed)
+            {
+                MildewedCount++;
+                AddMonster(Tuning.MonsterPerMildewed);
+            }
+            else if (newState == GarmentState.Ruined)
+            {
+                RuinedCount++;
+                AddMonster(Tuning.MonsterPerRuined);
+            }
+        }
+
+        public void AddMonster(float amount)
+        {
+            Monster = Mathf.Clamp(Monster + amount, 0f, Tuning.MonsterMax);
+        }
+
+        void UpdateMonsterVisual()
+        {
+            if (MonsterPile == null) return;
+
+            float f = Monster / Tuning.MonsterMax;
+            float s = Mathf.Lerp(0.35f, 3.2f, f);
+            MonsterPile.localScale = new Vector3(s, s * 0.75f, s);
+
+            if (_monsterMat != null)
+            {
+                _monsterMat.color = Color.Lerp(
+                    new Color(0.30f, 0.28f, 0.26f),
+                    new Color(0.42f, 0.10f, 0.14f), f);
+            }
+        }
+    }
+}

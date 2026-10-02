@@ -1,0 +1,42 @@
+using UnityEngine;
+
+namespace LaundryMonster
+{
+    /// <summary>
+    /// Where the game is actually won. Hold E to fold one carried garment at a time.
+    /// Wrinkled garments can be folded too, for half value - the player's call.
+    /// </summary>
+    public class FoldTable : Interactable
+    {
+        public override string Label => "Fold Table";
+
+        public static bool CanFold(Garment g) =>
+            g.State == GarmentState.CleanDry || g.State == GarmentState.Wrinkled;
+
+        Garment FirstFoldable(PlayerController p)
+        {
+            foreach (var g in p.Carried) if (CanFold(g)) return g;
+            return null;
+        }
+
+        public override float HoldSeconds(PlayerController p) =>
+            FirstFoldable(p) != null ? Tuning.FoldHold : 0f;
+
+        public override string ActionPrompt(PlayerController p)
+        {
+            var g = FirstFoldable(p);
+            if (g == null) return "";
+            return g.State == GarmentState.Wrinkled ? "fold (wrinkled, half)" : "fold";
+        }
+
+        public override void Interact(PlayerController p)
+        {
+            var g = FirstFoldable(p);
+            if (g == null) return;
+
+            g.FoldedWrinkled = g.State == GarmentState.Wrinkled;
+            g.SetState(GarmentState.Folded);
+            g.DecayMultiplier = 0f; // folded laundry is safe. briefly.
+        }
+    }
+}
