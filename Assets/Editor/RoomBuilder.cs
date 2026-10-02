@@ -16,6 +16,9 @@ public static class RoomBuilder
 {
     const string RootName = "__ROOM__";
 
+    /// <summary>Yaw applied to generated models so they face into the room.</summary>
+    const float ModelYaw = 180f;
+
     [MenuItem("Laundry Monster/Build Room")]
     public static string BuildRoom()
     {
@@ -136,6 +139,38 @@ public static class RoomBuilder
 
     // ---------- props ----------
 
+    /// <summary>First Mesh inside an imported model file, or null if it is not there.</summary>
+    static Mesh LoadModelMesh(string assetPath)
+    {
+        foreach (var o in AssetDatabase.LoadAllAssetsAtPath(assetPath))
+            if (o is Mesh m) return m;
+        return null;
+    }
+
+    /// <summary>Drop a generated model in as a child, with a URP material built from its baked texture.</summary>
+    static GameObject AddModel(Transform parent, string name, string folder,
+                               Vector3 localPos, Quaternion localRot, Color tint, float smoothness)
+    {
+        var mesh = LoadModelMesh($"Assets/Models/{folder}/{folder}.obj");
+        if (mesh == null) return null;
+
+        var go = new GameObject(name);
+        go.transform.SetParent(parent, false);
+        go.transform.localPosition = localPos;
+        go.transform.localRotation = localRot;
+
+        go.AddComponent<MeshFilter>().sharedMesh = mesh;
+        var rend = go.AddComponent<MeshRenderer>();
+
+        var mat = Mat(tint, smoothness);
+        var tex = AssetDatabase.LoadAssetAtPath<Texture2D>($"Assets/Models/{folder}/material_0.png");
+        if (tex != null) mat.mainTexture = tex;
+        rend.sharedMaterial = mat;
+        return go;
+    }
+
+
+
     static GameObject MakeMachine(Transform parent, string name, Vector3 pos, Material shell,
                                   Material glass, Material panel, Material chrome,
                                   LaundryMachine.Mode mode)
@@ -144,16 +179,27 @@ public static class RoomBuilder
         go.transform.SetParent(parent, false);
         go.transform.position = pos;
 
-        Child(go.transform, "Mesh", PrimitiveType.Cube,
-              new Vector3(0f, 0.62f, 0f), new Vector3(1.55f, 1.15f, 1.35f), shell);
+        // Generated model if we have one; the primitive build is the fallback.
+        bool washer = mode == LaundryMachine.Mode.Washer;
+        var model = AddModel(go.transform, "Model", "washer", Vector3.zero,
+                             Quaternion.Euler(0f, ModelYaw, 0f),
+                             washer ? new Color(0.95f, 0.96f, 1f) : new Color(0.95f, 0.78f, 0.52f),
+                             0.5f);
+        if (model == null)
+        {
+            Child(go.transform, "Mesh", PrimitiveType.Cube,
+                  new Vector3(0f, 0.62f, 0f), new Vector3(1.55f, 1.15f, 1.35f), shell);
+        }
 
         // Feet, so it sits on the floor instead of in it.
+        if (model == null)
         foreach (var fx in new[] { -0.6f, 0.6f })
             foreach (var fz in new[] { -0.5f, 0.5f })
                 Child(go.transform, "Foot", PrimitiveType.Cube,
                       new Vector3(fx, 0.03f, fz), new Vector3(0.16f, 0.06f, 0.16f), panel);
 
         // Door: a disc on the front face, with a chrome rim behind it.
+        if (model == null) {
         var rim = Child(go.transform, "DoorRim", PrimitiveType.Cylinder,
                         new Vector3(0f, 0.58f, -0.69f), new Vector3(0.92f, 0.035f, 0.92f), chrome);
         rim.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
@@ -168,9 +214,13 @@ public static class RoomBuilder
                          new Vector3(-0.48f, 1.16f, -0.68f), new Vector3(0.17f, 0.03f, 0.17f), chrome);
         dial.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
 
-        // Colour-coded lid, so washers and dryers read instantly from above.
+        }
+
+        // Colour-coded lid, so washers and dryers read instantly from above. This stays
+        // even with the model: it is the thing that tells the two machine types apart.
         Child(go.transform, "Strip", PrimitiveType.Cube,
-              new Vector3(0f, 1.21f, 0.12f), new Vector3(1.5f, 0.07f, 1.1f),
+              new Vector3(0f, model != null ? 1.33f : 1.21f, model != null ? 0f : 0.12f),
+              new Vector3(model != null ? 0.95f : 1.5f, 0.07f, model != null ? 0.98f : 1.1f),
               Mat(mode == LaundryMachine.Mode.Washer
                   ? new Color(0.22f, 0.50f, 0.82f)
                   : new Color(0.90f, 0.50f, 0.18f), 0.4f));
