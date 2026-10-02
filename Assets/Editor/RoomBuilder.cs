@@ -7,6 +7,10 @@ using LaundryMonster;
 /// <summary>
 /// Builds the laundry room from scratch. Re-runnable: it deletes anything it made
 /// last time first, so iterating on the layout never leaves duplicates behind.
+///
+/// Everything is Unity primitives. The detail comes from composing several of them
+/// per prop, from textures generated at runtime by SurfaceStyle, and from the
+/// lighting rig - not from imported art.
 /// </summary>
 public static class RoomBuilder
 {
@@ -17,10 +21,9 @@ public static class RoomBuilder
     {
         var scene = SceneManager.GetActiveScene();
 
-        // Wipe the previous build.
         var existing = GameObject.Find(RootName);
         if (existing != null) Object.DestroyImmediate(existing);
-        foreach (var stale in new[] { "Player", "GameDirector", "HUD" })
+        foreach (var stale in new[] { "Player", "GameDirector", "HUD", "Lighting" })
         {
             var go = GameObject.Find(stale);
             if (go != null) Object.DestroyImmediate(go);
@@ -28,92 +31,90 @@ public static class RoomBuilder
 
         var root = new GameObject(RootName);
 
-        // ---- materials ----
-        var floorMat = Mat(new Color(0.38f, 0.37f, 0.40f));
-        var wallMat = Mat(new Color(0.52f, 0.50f, 0.47f));
-        var washerMat = Mat(new Color(0.86f, 0.88f, 0.91f));
-        var dryerMat = Mat(new Color(0.88f, 0.74f, 0.55f));
-        var hamperMat = Mat(new Color(0.55f, 0.43f, 0.30f));
-        var tableMat = Mat(new Color(0.72f, 0.58f, 0.38f));
-        var closetMat = Mat(new Color(0.40f, 0.52f, 0.42f));
-        var chairMat = Mat(new Color(0.62f, 0.34f, 0.36f));
-        var monsterMat = Mat(new Color(0.30f, 0.28f, 0.26f));
-        var playerMat = Mat(new Color(0.25f, 0.55f, 0.85f));
+        // ---- palette ----
+        var floorMat   = Mat(new Color(0.52f, 0.50f, 0.55f), 0.35f);
+        var wallMat    = Mat(new Color(0.74f, 0.72f, 0.68f), 0.08f);
+        var trimMat    = Mat(new Color(0.42f, 0.41f, 0.40f), 0.25f);
+        var washerMat  = Mat(new Color(0.93f, 0.94f, 0.96f), 0.55f, 0.15f);
+        var dryerMat   = Mat(new Color(0.90f, 0.78f, 0.60f), 0.55f, 0.15f);
+        var glassMat   = Mat(new Color(0.10f, 0.13f, 0.18f), 0.85f, 0.10f);
+        var panelMat   = Mat(new Color(0.22f, 0.24f, 0.28f), 0.50f);
+        var hamperMat  = Mat(new Color(0.60f, 0.46f, 0.32f), 0.12f);
+        var woodMat    = Mat(new Color(0.76f, 0.60f, 0.40f), 0.22f);
+        var closetMat  = Mat(new Color(0.42f, 0.54f, 0.44f), 0.18f);
+        var chairMat   = Mat(new Color(0.66f, 0.34f, 0.36f), 0.20f);
+        var monsterMat = Mat(new Color(0.30f, 0.28f, 0.26f), 0.10f);
+        var sockMat    = Mat(new Color(0.50f, 0.44f, 0.62f), 0.20f);
+        var chromeMat  = Mat(new Color(0.78f, 0.80f, 0.84f), 0.85f, 0.90f);
+        var skinMat    = Mat(new Color(0.95f, 0.78f, 0.62f), 0.10f);
+        var shirtMat   = Mat(new Color(0.25f, 0.55f, 0.85f), 0.20f);
 
-        // ---- room shell ----
+        // ---- shell ----
         var floor = Box(root.transform, "Floor", new Vector3(0f, -0.05f, 1f),
                         new Vector3(17f, 0.1f, 13f), floorMat);
+        Style(floor, SurfaceStyle.Style.Floor, new Vector2(8f, 6f), 0.35f);
         floor.isStatic = true;
 
-        Box(root.transform, "Wall_Back", new Vector3(0f, 1.2f, 7.6f), new Vector3(17f, 2.4f, 0.4f), wallMat);
-        Box(root.transform, "Wall_Left", new Vector3(-8.3f, 1.2f, 1f), new Vector3(0.4f, 2.4f, 13f), wallMat);
-        Box(root.transform, "Wall_Right", new Vector3(8.3f, 1.2f, 1f), new Vector3(0.4f, 2.4f, 13f), wallMat);
+        var wb = Box(root.transform, "Wall_Back",  new Vector3(0f, 1.4f, 7.6f),  new Vector3(17f, 2.8f, 0.4f), wallMat);
+        var wl = Box(root.transform, "Wall_Left",  new Vector3(-8.3f, 1.4f, 1f), new Vector3(0.4f, 2.8f, 13f), wallMat);
+        var wr = Box(root.transform, "Wall_Right", new Vector3(8.3f, 1.4f, 1f),  new Vector3(0.4f, 2.8f, 13f), wallMat);
+        Style(wb, SurfaceStyle.Style.Wall, new Vector2(6f, 1.5f), 0.06f);
+        Style(wl, SurfaceStyle.Style.Wall, new Vector2(5f, 1.5f), 0.06f);
+        Style(wr, SurfaceStyle.Style.Wall, new Vector2(5f, 1.5f), 0.06f);
+
+        // Skirting, so the wall/floor join reads as a room rather than a box.
+        Box(root.transform, "Skirt_Back",  new Vector3(0f, 0.09f, 7.36f),  new Vector3(17f, 0.18f, 0.12f), trimMat);
+        Box(root.transform, "Skirt_Left",  new Vector3(-8.06f, 0.09f, 1f), new Vector3(0.12f, 0.18f, 13f), trimMat);
+        Box(root.transform, "Skirt_Right", new Vector3(8.06f, 0.09f, 1f),  new Vector3(0.12f, 0.18f, 13f), trimMat);
 
         // ---- stations ----
-        var hamper = Box(root.transform, "Hamper", new Vector3(-6.5f, 0.45f, 5.5f),
-                         new Vector3(1.3f, 0.9f, 1.3f), hamperMat);
+        var hamper = MakeHamper(root.transform, new Vector3(-6.5f, 0f, 5.4f), hamperMat);
         var hamperComp = hamper.AddComponent<Hamper>();
         hamperComp.InteractRadius = 2.0f;
+        hamper.AddComponent<LaundryMonster.Highlighter>();
 
-        var washerA = MakeMachine(root.transform, "Washer_A", new Vector3(-3.0f, 0.6f, 5.5f),
-                                  washerMat, LaundryMachine.Mode.Washer);
-        var washerB = MakeMachine(root.transform, "Washer_B", new Vector3(-0.5f, 0.6f, 5.5f),
-                                  washerMat, LaundryMachine.Mode.Washer);
-        var dryerA = MakeMachine(root.transform, "Dryer_A", new Vector3(2.5f, 0.6f, 5.5f),
-                                 dryerMat, LaundryMachine.Mode.Dryer);
-        var dryerB = MakeMachine(root.transform, "Dryer_B", new Vector3(5.0f, 0.6f, 5.5f),
-                                 dryerMat, LaundryMachine.Mode.Dryer);
+        MakeMachine(root.transform, "Washer_A", new Vector3(-3.0f, 0f, 5.5f), washerMat, glassMat, panelMat, chromeMat, LaundryMachine.Mode.Washer);
+        MakeMachine(root.transform, "Washer_B", new Vector3(-0.5f, 0f, 5.5f), washerMat, glassMat, panelMat, chromeMat, LaundryMachine.Mode.Washer);
+        MakeMachine(root.transform, "Dryer_A",  new Vector3(2.5f, 0f, 5.5f),  dryerMat,  glassMat, panelMat, chromeMat, LaundryMachine.Mode.Dryer);
+        MakeMachine(root.transform, "Dryer_B",  new Vector3(5.0f, 0f, 5.5f),  dryerMat,  glassMat, panelMat, chromeMat, LaundryMachine.Mode.Dryer);
 
-        var table = Box(root.transform, "FoldTable", new Vector3(4.5f, 0.45f, -2.5f),
-                        new Vector3(2.6f, 0.9f, 1.4f), tableMat);
-        table.AddComponent<FoldTable>().InteractRadius = 2.2f;
+        var table = MakeFoldTable(root.transform, new Vector3(4.5f, 0f, -2.5f), woodMat, chromeMat);
+        table.AddComponent<FoldTable>().InteractRadius = 2.3f;
+        table.AddComponent<LaundryMonster.Highlighter>();
 
-        var closet = Box(root.transform, "Closet", new Vector3(7.0f, 1.0f, 0.5f),
-                         new Vector3(1.2f, 2.0f, 2.6f), closetMat);
-        closet.AddComponent<Closet>().InteractRadius = 2.2f;
+        var closet = MakeCloset(root.transform, new Vector3(7.1f, 0f, 0.5f), closetMat, chromeMat);
+        closet.AddComponent<Closet>().InteractRadius = 2.3f;
+        closet.AddComponent<LaundryMonster.Highlighter>();
 
-        var sockMat = Mat(new Color(0.45f, 0.40f, 0.58f));
-        var sockDrawer = Box(root.transform, "SockDrawer", new Vector3(-6.0f, 0.4f, -2.2f),
-                             new Vector3(1.8f, 0.8f, 1.2f), sockMat);
-        sockDrawer.AddComponent<SockStation>().InteractRadius = 2.1f;
+        var chair = MakeChair(root.transform, new Vector3(0f, 0f, 0.5f), chairMat, woodMat);
+        chair.AddComponent<Chair>().InteractRadius = 2.1f;
+        chair.AddComponent<LaundryMonster.Highlighter>();
 
-        var chair = Box(root.transform, "TheChair", new Vector3(0f, 0.45f, 0.5f),
-                        new Vector3(1.3f, 0.9f, 1.3f), chairMat);
-        chair.AddComponent<Chair>().InteractRadius = 2.0f;
+        var drawer = MakeSockDrawer(root.transform, new Vector3(-6.0f, 0f, -2.2f), sockMat, chromeMat);
+        drawer.AddComponent<SockStation>().InteractRadius = 2.2f;
+        drawer.AddComponent<LaundryMonster.Highlighter>();
 
-        // ---- the Monster: a pile that grows out of your neglect ----
+        // ---- the Monster ----
         var monsterRoot = new GameObject("MonsterPile");
         monsterRoot.transform.SetParent(root.transform, false);
-        monsterRoot.transform.position = new Vector3(-6.5f, 0.3f, 1.0f);
-        var monsterBody = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        monsterBody.name = "Body";
-        monsterBody.transform.SetParent(monsterRoot.transform, false);
-        monsterBody.GetComponent<Renderer>().sharedMaterial = monsterMat;
-        Object.DestroyImmediate(monsterBody.GetComponent<Collider>());
+        monsterRoot.transform.position = new Vector3(-6.6f, 0.3f, 1.6f);
+        Child(monsterRoot.transform, "Body", PrimitiveType.Sphere, Vector3.zero, Vector3.one, monsterMat);
+        // A couple of lumps, so it reads as a heap rather than a ball.
+        Child(monsterRoot.transform, "Lump", PrimitiveType.Sphere,
+              new Vector3(0.45f, -0.15f, 0.20f), Vector3.one * 0.75f, monsterMat);
+        Child(monsterRoot.transform, "Lump", PrimitiveType.Sphere,
+              new Vector3(-0.40f, -0.20f, -0.25f), Vector3.one * 0.70f, monsterMat);
         monsterRoot.transform.localScale = new Vector3(0.35f, 0.26f, 0.35f);
 
         // ---- player ----
         var player = new GameObject("Player");
         player.transform.position = new Vector3(0f, 0f, -2f);
-
-        var body = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-        body.name = "Body";
-        body.transform.SetParent(player.transform, false);
-        body.transform.localPosition = new Vector3(0f, 0.9f, 0f);
-        body.transform.localScale = new Vector3(0.8f, 0.9f, 0.8f);
-        body.GetComponent<Renderer>().sharedMaterial = playerMat;
-        Object.DestroyImmediate(body.GetComponent<Collider>());
-
-        // A nose, so you can tell which way you are facing.
-        var nose = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        nose.name = "Facing";
-        nose.transform.SetParent(player.transform, false);
-        nose.transform.localPosition = new Vector3(0f, 1.0f, 0.45f);
-        nose.transform.localScale = new Vector3(0.25f, 0.25f, 0.3f);
-        nose.GetComponent<Renderer>().sharedMaterial = Mat(new Color(0.95f, 0.85f, 0.4f));
-        Object.DestroyImmediate(nose.GetComponent<Collider>());
-
+        BuildPlayer(player.transform, shirtMat, skinMat);
         player.AddComponent<PlayerController>();
+
+        // ---- lighting ----
+        var lighting = new GameObject("Lighting");
+        BuildLighting(lighting.transform);
 
         // ---- director + HUD ----
         var dirGo = new GameObject("GameDirector");
@@ -132,39 +133,233 @@ public static class RoomBuilder
         EditorSceneManager.SaveScene(scene);
         AssetDatabase.SaveAssets();
 
-        return "Room built: 2 washers, 2 dryers, hamper, fold table, sock drawer, closet, chair, monster, player, HUD.";
+        return "Room rebuilt: detailed machines, chair, closet, fold table, sock drawer, "
+             + "hamper, monster, player, 4-light rig, textured surfaces, highlight pads.";
     }
 
-    static GameObject MakeMachine(Transform parent, string name, Vector3 pos,
-                                  Material mat, LaundryMachine.Mode mode)
+    // ---------- props ----------
+
+    static GameObject MakeMachine(Transform parent, string name, Vector3 pos, Material shell,
+                                  Material glass, Material panel, Material chrome,
+                                  LaundryMachine.Mode mode)
     {
-        var go = Box(parent, name, pos, new Vector3(1.6f, 1.2f, 1.4f), mat);
+        var go = new GameObject(name);
+        go.transform.SetParent(parent, false);
+        go.transform.position = pos;
+
+        var shellGo = Child(go.transform, "Mesh", PrimitiveType.Cube,
+                            new Vector3(0f, 0.62f, 0f), new Vector3(1.55f, 1.15f, 1.35f), shell);
+        Style(shellGo, SurfaceStyle.Style.Metal, new Vector2(1f, 1f), 0.55f, 0.15f);
+
+        // Feet, so it sits on the floor instead of in it.
+        foreach (var fx in new[] { -0.6f, 0.6f })
+            foreach (var fz in new[] { -0.5f, 0.5f })
+                Child(go.transform, "Foot", PrimitiveType.Cube,
+                      new Vector3(fx, 0.03f, fz), new Vector3(0.16f, 0.06f, 0.16f), panel);
+
+        // Door: a disc on the front face, with a chrome rim behind it.
+        var rim = Child(go.transform, "DoorRim", PrimitiveType.Cylinder,
+                        new Vector3(0f, 0.58f, -0.69f), new Vector3(0.92f, 0.035f, 0.92f), chrome);
+        rim.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+        var door = Child(go.transform, "Door", PrimitiveType.Cylinder,
+                         new Vector3(0f, 0.58f, -0.72f), new Vector3(0.78f, 0.035f, 0.78f), glass);
+        door.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+
+        // Control panel and a dial.
+        Child(go.transform, "Panel", PrimitiveType.Cube,
+              new Vector3(0f, 1.14f, -0.52f), new Vector3(1.4f, 0.18f, 0.3f), panel);
+        var dial = Child(go.transform, "Dial", PrimitiveType.Cylinder,
+                         new Vector3(-0.48f, 1.16f, -0.68f), new Vector3(0.17f, 0.03f, 0.17f), chrome);
+        dial.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+
+        // Colour-coded lid, so washers and dryers read instantly from above.
+        Child(go.transform, "Strip", PrimitiveType.Cube,
+              new Vector3(0f, 1.21f, 0.12f), new Vector3(1.5f, 0.07f, 1.1f),
+              Mat(mode == LaundryMachine.Mode.Washer
+                  ? new Color(0.22f, 0.50f, 0.82f)
+                  : new Color(0.90f, 0.50f, 0.18f), 0.4f));
+
         var m = go.AddComponent<LaundryMachine>();
         m.MachineMode = mode;
-        m.InteractRadius = 1.8f;   // tight, so adjacent machines stay distinguishable
+        m.InteractRadius = 1.85f;
+        go.AddComponent<LaundryMonster.Highlighter>();
+        return go;
+    }
 
-        // A dark porthole, so washers and dryers read at a glance.
-        var port = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        port.name = "Port";
-        port.transform.SetParent(go.transform, false);
-        port.transform.localPosition = new Vector3(0f, 0.05f, -0.72f);
-        port.transform.localScale = new Vector3(0.8f, 0.8f, 0.12f);
-        port.GetComponent<Renderer>().sharedMaterial =
-            Mat(mode == LaundryMachine.Mode.Washer
-                ? new Color(0.15f, 0.22f, 0.32f)
-                : new Color(0.32f, 0.20f, 0.15f));
-        Object.DestroyImmediate(port.GetComponent<Collider>());
+    static GameObject MakeHamper(Transform parent, Vector3 pos, Material mat)
+    {
+        var go = new GameObject("Hamper");
+        go.transform.SetParent(parent, false);
+        go.transform.position = pos;
 
-        var strip = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        strip.name = "Strip";
-        strip.transform.SetParent(go.transform, false);
-        strip.transform.localPosition = new Vector3(0f, 0.62f, 0f);
-        strip.transform.localScale = new Vector3(1.5f, 0.06f, 1.2f);
-        strip.GetComponent<Renderer>().sharedMaterial =
-            Mat(mode == LaundryMachine.Mode.Washer
-                ? new Color(0.20f, 0.45f, 0.75f)
-                : new Color(0.85f, 0.45f, 0.15f));
-        Object.DestroyImmediate(strip.GetComponent<Collider>());
+        var basket = Child(go.transform, "Mesh", PrimitiveType.Cube,
+                           new Vector3(0f, 0.42f, 0f), new Vector3(1.35f, 0.84f, 1.35f), mat);
+        Style(basket, SurfaceStyle.Style.Weave, new Vector2(3f, 2f), 0.1f);
+
+        Child(go.transform, "Rim", PrimitiveType.Cube,
+              new Vector3(0f, 0.86f, 0f), new Vector3(1.48f, 0.10f, 1.48f),
+              Mat(new Color(0.46f, 0.34f, 0.23f), 0.2f));
+        return go;
+    }
+
+    static GameObject MakeFoldTable(Transform parent, Vector3 pos, Material wood, Material chrome)
+    {
+        var go = new GameObject("FoldTable");
+        go.transform.SetParent(parent, false);
+        go.transform.position = pos;
+
+        Child(go.transform, "Mesh", PrimitiveType.Cube,
+              new Vector3(0f, 0.86f, 0f), new Vector3(2.7f, 0.12f, 1.5f), wood);
+        foreach (var lx in new[] { -1.2f, 1.2f })
+            foreach (var lz in new[] { -0.58f, 0.58f })
+                Child(go.transform, "Leg", PrimitiveType.Cylinder,
+                      new Vector3(lx, 0.43f, lz), new Vector3(0.1f, 0.43f, 0.1f), chrome);
+
+        // A small stack of folded laundry on the far end, as set dressing.
+        for (int i = 0; i < 3; i++)
+            Child(go.transform, "Dressing", PrimitiveType.Cube,
+                  new Vector3(0.95f, 0.96f + i * 0.1f, 0.2f),
+                  new Vector3(0.5f, 0.09f, 0.4f),
+                  Mat(new Color(0.85f - i * 0.08f, 0.88f, 0.93f), 0.15f));
+        return go;
+    }
+
+    static GameObject MakeCloset(Transform parent, Vector3 pos, Material body, Material chrome)
+    {
+        var go = new GameObject("Closet");
+        go.transform.SetParent(parent, false);
+        go.transform.position = pos;
+
+        Child(go.transform, "Mesh", PrimitiveType.Cube,
+              new Vector3(0f, 1.1f, 0f), new Vector3(1.1f, 2.2f, 2.6f), body);
+
+        foreach (var dz in new[] { -0.64f, 0.64f })
+        {
+            Child(go.transform, "Door", PrimitiveType.Cube,
+                  new Vector3(-0.57f, 1.1f, dz), new Vector3(0.06f, 2.0f, 1.2f),
+                  Mat(new Color(0.36f, 0.48f, 0.39f), 0.25f));
+            Child(go.transform, "Handle", PrimitiveType.Cylinder,
+                  new Vector3(-0.63f, 1.1f, dz + (dz < 0f ? 0.42f : -0.42f)),
+                  new Vector3(0.05f, 0.16f, 0.05f), chrome);
+        }
+        return go;
+    }
+
+    static GameObject MakeChair(Transform parent, Vector3 pos, Material fabric, Material wood)
+    {
+        var go = new GameObject("TheChair");
+        go.transform.SetParent(parent, false);
+        go.transform.position = pos;
+
+        Child(go.transform, "Mesh", PrimitiveType.Cube,
+              new Vector3(0f, 0.48f, 0f), new Vector3(1.25f, 0.18f, 1.2f), fabric);
+        Child(go.transform, "Back", PrimitiveType.Cube,
+              new Vector3(0f, 0.95f, 0.52f), new Vector3(1.25f, 0.8f, 0.14f), fabric);
+        foreach (var lx in new[] { -0.5f, 0.5f })
+            foreach (var lz in new[] { -0.47f, 0.47f })
+                Child(go.transform, "Leg", PrimitiveType.Cylinder,
+                      new Vector3(lx, 0.24f, lz), new Vector3(0.09f, 0.24f, 0.09f), wood);
+        return go;
+    }
+
+    static GameObject MakeSockDrawer(Transform parent, Vector3 pos, Material body, Material chrome)
+    {
+        var go = new GameObject("SockDrawer");
+        go.transform.SetParent(parent, false);
+        go.transform.position = pos;
+
+        Child(go.transform, "Mesh", PrimitiveType.Cube,
+              new Vector3(0f, 0.45f, 0f), new Vector3(1.9f, 0.9f, 1.25f), body);
+        for (int i = 0; i < 2; i++)
+        {
+            Child(go.transform, "DrawerFront", PrimitiveType.Cube,
+                  new Vector3(0f, 0.28f + i * 0.36f, -0.64f), new Vector3(1.75f, 0.30f, 0.07f),
+                  Mat(new Color(0.42f, 0.37f, 0.54f), 0.25f));
+            Child(go.transform, "Handle", PrimitiveType.Cube,
+                  new Vector3(0f, 0.28f + i * 0.36f, -0.70f), new Vector3(0.6f, 0.05f, 0.05f), chrome);
+        }
+        return go;
+    }
+
+    static void BuildPlayer(Transform root, Material shirt, Material skin)
+    {
+        Child(root, "Body", PrimitiveType.Capsule,
+              new Vector3(0f, 0.62f, 0f), new Vector3(0.72f, 0.46f, 0.72f), shirt);
+        Child(root, "Head", PrimitiveType.Sphere,
+              new Vector3(0f, 1.26f, 0f), new Vector3(0.52f, 0.52f, 0.52f), skin);
+
+        // Hair and a nose: between them you can always read which way you are facing.
+        Child(root, "Hair", PrimitiveType.Sphere,
+              new Vector3(0f, 1.34f, -0.04f), new Vector3(0.54f, 0.40f, 0.54f),
+              Mat(new Color(0.26f, 0.19f, 0.15f), 0.2f));
+        Child(root, "Facing", PrimitiveType.Cube,
+              new Vector3(0f, 1.24f, 0.25f), new Vector3(0.1f, 0.1f, 0.12f), skin);
+
+        foreach (var ax in new[] { -0.42f, 0.42f })
+            Child(root, "Arm", PrimitiveType.Capsule,
+                  new Vector3(ax, 0.72f, 0.05f), new Vector3(0.2f, 0.26f, 0.2f), shirt);
+    }
+
+    static void BuildLighting(Transform root)
+    {
+        // Key: warm, angled, and the only shadow caster.
+        var key = new GameObject("Key Light");
+        key.transform.SetParent(root, false);
+        var kl = key.AddComponent<Light>();
+        kl.type = LightType.Directional;
+        kl.color = new Color(1f, 0.96f, 0.90f);
+        kl.intensity = 1.05f;
+        kl.shadows = LightShadows.Soft;
+        kl.shadowStrength = 0.72f;
+        key.transform.rotation = Quaternion.Euler(52f, -34f, 0f);
+
+        // Fill: cool, opposite side, no shadows - stops the dark sides going black.
+        var fill = new GameObject("Fill Light");
+        fill.transform.SetParent(root, false);
+        var fl = fill.AddComponent<Light>();
+        fl.type = LightType.Directional;
+        fl.color = new Color(0.70f, 0.80f, 1f);
+        fl.intensity = 0.32f;
+        fl.shadows = LightShadows.None;
+        fill.transform.rotation = Quaternion.Euler(28f, 150f, 0f);
+
+        // Two strip lights overhead, for pools of fluorescent light on the floor.
+        foreach (var px in new[] { -3.2f, 3.2f })
+        {
+            var lamp = new GameObject("Strip Light");
+            lamp.transform.SetParent(root, false);
+            lamp.transform.position = new Vector3(px, 3.1f, 3.2f);
+            var pl = lamp.AddComponent<Light>();
+            pl.type = LightType.Point;
+            pl.color = new Color(0.95f, 0.97f, 1f);
+            pl.intensity = 2.2f;
+            pl.range = 13f;
+            pl.shadows = LightShadows.None;
+        }
+
+        RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
+        RenderSettings.ambientSkyColor = new Color(0.42f, 0.44f, 0.50f);
+        RenderSettings.ambientEquatorColor = new Color(0.33f, 0.33f, 0.36f);
+        RenderSettings.ambientGroundColor = new Color(0.20f, 0.19f, 0.20f);
+
+        // Remove the template light so it does not fight the rig.
+        var old = GameObject.Find("Directional Light");
+        if (old != null) Object.DestroyImmediate(old);
+    }
+
+    // ---------- helpers ----------
+
+    static GameObject Child(Transform parent, string name, PrimitiveType type,
+                            Vector3 localPos, Vector3 localScale, Material mat)
+    {
+        var go = GameObject.CreatePrimitive(type);
+        go.name = name;
+        go.transform.SetParent(parent, false);
+        go.transform.localPosition = localPos;
+        go.transform.localScale = localScale;
+        go.GetComponent<Renderer>().sharedMaterial = mat;
+        var col = go.GetComponent<Collider>();
+        if (col != null) Object.DestroyImmediate(col);
         return go;
     }
 
@@ -173,18 +368,21 @@ public static class RoomBuilder
         var go = new GameObject(name);
         go.transform.SetParent(parent, false);
         go.transform.position = pos;
-
-        var mesh = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        mesh.name = "Mesh";
-        mesh.transform.SetParent(go.transform, false);
-        mesh.transform.localScale = scale;
-        mesh.GetComponent<Renderer>().sharedMaterial = mat;
-        Object.DestroyImmediate(mesh.GetComponent<Collider>());
-
+        Child(go.transform, "Mesh", PrimitiveType.Cube, Vector3.zero, scale, mat);
         return go;
     }
 
-    static Material Mat(Color c)
+    static void Style(GameObject go, SurfaceStyle.Style kind, Vector2 tiling,
+                      float smoothness, float metallic = 0f)
+    {
+        var s = go.AddComponent<SurfaceStyle>();
+        s.Kind = kind;
+        s.Tiling = tiling;
+        s.Smoothness = smoothness;
+        s.Metallic = metallic;
+    }
+
+    static Material Mat(Color c, float smoothness = 0.2f, float metallic = 0f)
     {
         var rp = UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline;
         Shader shader = rp != null && rp.defaultMaterial != null
@@ -194,6 +392,9 @@ public static class RoomBuilder
 
         var m = new Material(shader);
         m.color = c;
+        if (m.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", smoothness);
+        if (m.HasProperty("_Glossiness")) m.SetFloat("_Glossiness", smoothness);
+        if (m.HasProperty("_Metallic")) m.SetFloat("_Metallic", metallic);
         return m;
     }
 }

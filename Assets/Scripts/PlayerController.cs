@@ -105,9 +105,27 @@ namespace LaundryMonster
 
             if (best != Nearest)
             {
+                // Drop the old highlight before taking the new one.
+                if (Nearest != null)
+                {
+                    var prev = Nearest.GetComponent<Highlighter>();
+                    if (prev != null) prev.SetHighlighted(false, false);
+                }
+
                 Nearest = best;
                 _holdTimer = 0f;
                 HoldProgress = 0f;
+            }
+
+            if (Nearest != null)
+            {
+                var h = Nearest.GetComponent<Highlighter>();
+                if (h != null)
+                {
+                    bool actionable = !string.IsNullOrEmpty(Nearest.ActionPrompt(this))
+                                   || !string.IsNullOrEmpty(Nearest.HoldPrompt(this));
+                    h.SetHighlighted(true, actionable);
+                }
             }
         }
 

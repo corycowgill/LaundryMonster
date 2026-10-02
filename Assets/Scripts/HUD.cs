@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -14,6 +15,9 @@ namespace LaundryMonster
         GameDirector _dir;
 
         Text _dayText, _timeText, _scoreText, _carryText, _promptText, _monsterText, _flashText;
+        Text _machinesText, _hintText;
+        Image _promptBg;
+        readonly List<LaundryMachine> _machines = new List<LaundryMachine>();
         Image _timeFill, _monsterFill, _holdFill;
         GameObject _holdGroup, _summaryPanel;
         Text _summaryText;
@@ -97,12 +101,25 @@ namespace LaundryMonster
             _monsterFill.fillMethod = Image.FillMethod.Horizontal;
             _monsterFill.fillOrigin = 0;
 
+            // --- top centre: every machine at a glance, so you need not look around ---
+            _machinesText = MakeText(root, "", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                                     new Vector2(0f, -34f), new Vector2(900f, 40f), 26, TextAnchor.UpperCenter);
+
+            // --- a first-day nudge, then it gets out of the way ---
+            _hintText = MakeText(root, "", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                                 new Vector2(0f, -78f), new Vector2(1100f, 36f), 23, TextAnchor.UpperCenter);
+            _hintText.color = new Color(1f, 1f, 1f, 0.6f);
+
             // --- bottom centre: carrying + prompt + hold bar ---
             _carryText = MakeText(root, "", new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
                                   new Vector2(0f, 150f), new Vector2(900f, 36f), 26, TextAnchor.LowerCenter);
 
+            _promptBg = MakeImage(root, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
+                                  new Vector2(0f, 88f), new Vector2(760f, 108f),
+                                  new Color(0f, 0f, 0f, 0.42f), TextAnchor.LowerCenter);
+
             _promptText = MakeText(root, "", new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                                   new Vector2(0f, 96f), new Vector2(900f, 48f), 32, TextAnchor.LowerCenter);
+                                   new Vector2(0f, 96f), new Vector2(900f, 96f), 32, TextAnchor.LowerCenter);
 
             _holdGroup = new GameObject("HoldBar");
             _holdGroup.transform.SetParent(root, false);
@@ -228,9 +245,83 @@ namespace LaundryMonster
             _monsterFill.fillAmount = mFrac;
             _monsterText.text = mFrac > 0.75f ? "MONSTER - it has eyes now" : "MONSTER";
 
+            UpdateMachines();
+            UpdateHint();
             UpdateFlash();
             UpdateCarryAndPrompt();
             UpdateSummary();
+        }
+
+        void UpdateMachines()
+        {
+            if (_machinesText == null) return;
+
+            if (_machines.Count == 0)
+            {
+                _machines.AddRange(Object.FindObjectsByType<LaundryMachine>());
+                _machines.Sort((a, b) => a.transform.position.x.CompareTo(b.transform.position.x));
+            }
+
+            var sb = new System.Text.StringBuilder();
+            for (int i = 0; i < _machines.Count; i++)
+            {
+                var m = _machines[i];
+                if (m == null) continue;
+                if (i > 0) sb.Append("   ");
+                sb.Append(m.MachineMode == LaundryMachine.Mode.Washer ? "W" : "D");
+                sb.Append((i % 2) + 1);
+                sb.Append(" ");
+                sb.Append(m.Status);
+            }
+            _machinesText.text = sb.ToString();
+
+            // Colour the whole strip by the most urgent thing happening.
+            bool done = false, danger = false;
+            foreach (var m in _machines)
+            {
+                if (m == null) continue;
+                if (m.HasFinishedLoad) done = true;
+                if (m.Offline || (m.MachineMode == LaundryMachine.Mode.Dryer
+                                  && m.Lint >= Tuning.LintFireThreshold)) danger = true;
+            }
+            _machinesText.color = danger ? new Color(1f, 0.5f, 0.35f)
+                               : done   ? new Color(1f, 0.85f, 0.4f)
+                                        : new Color(1f, 1f, 1f, 0.75f);
+        }
+
+        void UpdateHint()
+        {
+            if (_hintText == null) return;
+
+            // Only on day 1, and only while there is nothing more urgent on screen.
+            if (_dir.Day > 1 || _dir.FlashTimer > 0f) { _hintText.text = ""; return; }
+
+            if (_player == null) { _hintText.text = ""; return; }
+
+            string hint;
+            if (_player.Carried.Count == 0)
+                hint = "WASD to move.  Grab laundry from the hamper on the left.";
+            else
+            {
+                var g = _player.Carried[0];
+                switch (g.State)
+                {
+                    case GarmentState.Dirty:
+                    case GarmentState.Mildewed:
+                        hint = "Take it to a washer (blue lid).  Hold E there to check pockets first."; break;
+                    case GarmentState.Wet:
+                        hint = "Into a dryer (orange lid) before it mildews."; break;
+                    case GarmentState.CleanDry:
+                        hint = "The wrinkle clock is running.  HOLD E at the fold table."; break;
+                    case GarmentState.Wrinkled:
+                        hint = "Wrinkled: re-dry it for full value, or fold it for half."; break;
+                    case GarmentState.Folded:
+                        hint = "Put it away in the closet on the right.  That is what scores."; break;
+                    default:
+                        hint = ""; break;
+                }
+            }
+            _hintText.text = hint;
         }
 
         void UpdateFlash()
@@ -300,6 +391,13 @@ namespace LaundryMonster
                 _promptText.text = line;
             }
 
+            // The backing plate only earns its place when there is something on it.
+            if (_promptBg != null)
+            {
+                bool show = !string.IsNullOrEmpty(_promptText.text);
+                if (_promptBg.gameObject.activeSelf != show) _promptBg.gameObject.SetActive(show);
+            }
+
             bool holding = _player.HoldProgress > 0f;
             if (_holdGroup.activeSelf != holding) _holdGroup.SetActive(holding);
             if (holding) _holdFill.fillAmount = _player.HoldProgress;
@@ -322,7 +420,7 @@ namespace LaundryMonster
             }
 
             string stars = "";
-            for (int i = 0; i < 3; i++) stars += i < _dir.Stars ? "* " : "- ";
+            for (int i = 0; i < 3; i++) stars += i < _dir.Stars ? "[*]" : "[ ]";
 
             _summaryText.text =
                 "DAY " + _dir.Day + " COMPLETE\n\n" +
