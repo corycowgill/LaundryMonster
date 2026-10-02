@@ -151,7 +151,7 @@ public static class RoomBuilder
     static GameObject AddModel(Transform parent, string name, string folder,
                                Vector3 localPos, Quaternion localRot, Color tint, float smoothness)
     {
-        var mesh = LoadModelMesh($"Assets/Models/{folder}/{folder}.obj");
+        var mesh = LoadModelMesh($"Assets/Models/{folder}/{folder}.fbx");
         if (mesh == null) return null;
 
         var go = new GameObject(name);
@@ -277,9 +277,9 @@ public static class RoomBuilder
         go.transform.SetParent(parent, false);
         go.transform.position = pos;
 
-        if (AddModel(go.transform, "Model", "closet", Vector3.zero,
-                     Quaternion.Euler(0f, ModelYaw + 90f, 0f), Color.white, 0.18f) != null)
-            return go;
+        // The generated closet is deliberately NOT used. Both TRELLIS attempts came back
+        // with a hollow open face that reads as a shelf from every angle, and no rotation
+        // fixes a hole. The composed primitive version is simply better here.
 
         Child(go.transform, "Mesh", PrimitiveType.Cube,
               new Vector3(0f, 1.1f, 0f), new Vector3(1.1f, 2.2f, 2.6f), body);
