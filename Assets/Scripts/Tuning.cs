@@ -77,6 +77,14 @@ namespace LaundryMonster
         public const float FireOfflineSeconds = 30f;
         public const float LintClearHold = 2.0f;
 
+        // --- socks: the unwinnable subsystem ---
+        // Socks arrive in pairs and leave in odd numbers. You can never reach zero,
+        // which is the joke and also true.
+        public const float SockVoidChance = 0.15f;   // per wash, one sock may simply go
+        public const int OrphanDrawerCapacity = 6;
+        public const int OrphansPerRag = 3;
+        public const float SockMatchHold = 1.0f;
+
         // --- monster ---
         public const float MonsterPerWrinkled = 1f;
         public const float MonsterPerMildewed = 1.5f;

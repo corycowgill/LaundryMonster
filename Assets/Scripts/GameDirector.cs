@@ -54,6 +54,31 @@ namespace LaundryMonster
             SfxPlayer.Play(Sfx.RunOver, 1f);
         }
 
+        /// <summary>A sock was absorbed into its pair, or made into a rag. Not a loss.</summary>
+        public void NoteSockMerged(Garment g)
+        {
+            if (g != null) _all.Remove(g);
+        }
+
+        /// <summary>A sock went to the Void. Its partner is an orphan forever.</summary>
+        public int VoidedSocks;
+
+        public void VoidSock(Garment sock)
+        {
+            if (sock == null) return;
+
+            // Whatever shares its pair id is now an orphan.
+            foreach (var other in _all)
+                if (other != null && other != sock && other.IsSock && other.PairId == sock.PairId)
+                    other.Orphan = true;
+
+            VoidedSocks++;
+            _all.Remove(sock);
+            Destroy(sock.gameObject);
+            SfxPlayer.Play(Sfx.Wrinkled, 0.7f, 1.4f);
+            Flash("a sock is simply gone. nobody knows where.", new Color(0.65f, 0.7f, 0.85f));
+        }
+
         /// <summary>Destroy a garment outright. Only pocket disasters do this.</summary>
         public void Ruin(Garment g)
         {
@@ -135,6 +160,13 @@ namespace LaundryMonster
             // is about finishing rather than starting.
             _spawnTimes.Clear();
             _spawnIndex = 0;
+            if (day == 1) { VoidedSocks = 0; _nextPairId = 0; }
+
+            foreach (var st in Object.FindObjectsByType<SockStation>())
+            {
+                st.Orphans.Clear();
+                if (day == 1) st.Rags = 0;
+            }
             int count = Tuning.GarmentsForDay(day);
             for (int i = 0; i < count; i++)
                 _spawnTimes.Add(DayLength * 0.70f * (i / (float)Mathf.Max(1, count - 1)));
@@ -229,9 +261,25 @@ namespace LaundryMonster
             else Stars = 0;
         }
 
+        int _nextPairId;
+
         void SpawnGarment()
         {
             var kind = (GarmentKind)Random.Range(0, 5);
+
+            // Socks arrive two at a time, sharing a pair id. They rarely leave that way.
+            if (kind == GarmentKind.Sock)
+            {
+                int pair = _nextPairId++;
+                MakeGarment(kind).PairId = pair;
+                MakeGarment(kind).PairId = pair;
+                return;
+            }
+            MakeGarment(kind);
+        }
+
+        Garment MakeGarment(GarmentKind kind)
+        {
 
             var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
             go.name = "Garment_" + kind;
@@ -258,6 +306,7 @@ namespace LaundryMonster
 
             _all.Add(g);
             if (Hamper != null) Hamper.Add(g);
+            return g;
         }
 
         public void Deliver(Garment g)

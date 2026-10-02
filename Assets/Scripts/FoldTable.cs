@@ -11,7 +11,8 @@ namespace LaundryMonster
         public override string Label => "Fold Table";
 
         public static bool CanFold(Garment g) =>
-            g.State == GarmentState.CleanDry || g.State == GarmentState.Wrinkled;
+            (g.State == GarmentState.CleanDry || g.State == GarmentState.Wrinkled)
+            && !g.NeedsPartner;   // a lone sock is not foldable. that is the whole problem.
 
         Garment FirstFoldable(PlayerController p)
         {
@@ -29,7 +30,12 @@ namespace LaundryMonster
         public override string HoldPrompt(PlayerController p)
         {
             var g = FirstFoldable(p);
-            if (g == null) return "";
+            if (g == null)
+            {
+                foreach (var c in p.Carried)
+                    if (c.NeedsPartner) return "";   // tell them at the drawer, not here
+                return "";
+            }
             return g.State == GarmentState.Wrinkled ? "fold (wrinkled, half value)" : "fold";
         }
 

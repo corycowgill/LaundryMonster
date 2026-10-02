@@ -367,6 +367,18 @@ namespace LaundryMonster
                         g.SetState(OutputState);
                         g.DecayMultiplier = 1f; // the clock starts the moment the cycle ends
                     }
+                    // The Sock Void takes its cut on the way out of the washer.
+                    if (MachineMode == Mode.Washer && Random.value < Tuning.SockVoidChance)
+                    {
+                        Garment doomed = null;
+                        foreach (var g in Contents) if (g.IsSock && !g.Paired) { doomed = g; break; }
+                        if (doomed != null)
+                        {
+                            Contents.Remove(doomed);
+                            GameDirector.Instance?.VoidSock(doomed);
+                        }
+                    }
+
                     if (MachineMode == Mode.Dryer)
                     {
                         Lint = Mathf.Min(Tuning.LintMax, Lint + Tuning.LintPerDryCycle);

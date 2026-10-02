@@ -29,6 +29,20 @@ namespace LaundryMonster
         /// <summary>Folded while wrinkled, so it only scores half.</summary>
         public bool FoldedWrinkled;
 
+        /// <summary>Socks only: which pair this belongs to. -1 for everything else.</summary>
+        public int PairId = -1;
+
+        /// <summary>Socks only: matched with its partner, so it can finally be folded.</summary>
+        public bool Paired;
+
+        /// <summary>Socks only: its partner went to the Void. It can never be matched.</summary>
+        public bool Orphan;
+
+        public bool IsSock => Kind == GarmentKind.Sock;
+
+        /// <summary>A lone sock cannot be folded or put away. That is the whole problem.</summary>
+        public bool NeedsPartner => IsSock && !Paired;
+
         Renderer _rend;
         Material _mat;
 

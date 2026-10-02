@@ -72,6 +72,11 @@ public static class RoomBuilder
                          new Vector3(1.2f, 2.0f, 2.6f), closetMat);
         closet.AddComponent<Closet>().InteractRadius = 2.2f;
 
+        var sockMat = Mat(new Color(0.45f, 0.40f, 0.58f));
+        var sockDrawer = Box(root.transform, "SockDrawer", new Vector3(-6.0f, 0.4f, -2.2f),
+                             new Vector3(1.8f, 0.8f, 1.2f), sockMat);
+        sockDrawer.AddComponent<SockStation>().InteractRadius = 2.1f;
+
         var chair = Box(root.transform, "TheChair", new Vector3(0f, 0.45f, 0.5f),
                         new Vector3(1.3f, 0.9f, 1.3f), chairMat);
         chair.AddComponent<Chair>().InteractRadius = 2.0f;
@@ -127,7 +132,7 @@ public static class RoomBuilder
         EditorSceneManager.SaveScene(scene);
         AssetDatabase.SaveAssets();
 
-        return "Room built: 2 washers, 2 dryers, hamper, fold table, closet, chair, monster, player, HUD.";
+        return "Room built: 2 washers, 2 dryers, hamper, fold table, sock drawer, closet, chair, monster, player, HUD.";
     }
 
     static GameObject MakeMachine(Transform parent, string name, Vector3 pos,

@@ -10,7 +10,7 @@ namespace LaundryMonster
         int FoldedCount(PlayerController p)
         {
             int n = 0;
-            foreach (var g in p.Carried) if (g.State == GarmentState.Folded) n++;
+            foreach (var g in p.Carried) if (g.State == GarmentState.Folded && !g.NeedsPartner) n++;
             return n;
         }
 
@@ -23,7 +23,7 @@ namespace LaundryMonster
             for (int i = p.Carried.Count - 1; i >= 0; i--)
             {
                 var g = p.Carried[i];
-                if (g.State != GarmentState.Folded) continue;
+                if (g.State != GarmentState.Folded || g.NeedsPartner) continue;
 
                 p.Release(g);
                 GameDirector.Instance?.Deliver(g);

@@ -329,7 +329,8 @@ namespace LaundryMonster
                 "put away      " + _dir.Delivered + "\n" +
                 "score         " + _dir.Score.ToString("0.#") + " / " + _dir.Target.ToString("0.#") + "\n" +
                 "wrinkled      " + _dir.WrinkledCount + "\n" +
-                "mildewed      " + _dir.MildewedCount + "\n\n" +
+                "mildewed      " + _dir.MildewedCount + "\n" +
+                "socks lost    " + _dir.VoidedSocks + "\n\n" +
                 stars + "\n\n" +
                 "press SPACE for day " + (_dir.Day + 1);
         }

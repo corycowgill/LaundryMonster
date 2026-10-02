@@ -23,7 +23,7 @@ Verified in Play mode, not assumed.
 | Monster grows from neglect | working |
 | pocket roulette | working - tap to gamble, hold to check |
 | lint traps | working - debt that survives the day, and burns |
-| socks / the Sock Void | not built |
+| socks / the Sock Void | working - pairs, orphans, dust rags |
 | darks/whites separation | not built |
 | audio | working - synthesised in code, no sound files |
 | art | greybox primitives, not the low-poly look |
