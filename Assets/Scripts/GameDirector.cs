@@ -314,6 +314,13 @@ namespace LaundryMonster
             else Stars = 0;
 
             RunStars += Stars;
+
+            // Earning a star is worth a cheer; scraping through on zero is not.
+            if (Stars > 0)
+            {
+                var hero = FindFirstObjectByType<HeroAnimator>();
+                if (hero != null) hero.Celebrate();
+            }
         }
 
         int _nextPairId;

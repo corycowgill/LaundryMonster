@@ -175,7 +175,7 @@ namespace LaundryMonster
                 if (_holdTimer >= need)
                 {
                     Nearest.HoldInteract(this);
-                    var ha = GetComponent<CharacterAnimator>();
+                    var ha = GetComponent<HeroAnimator>();
                     if (ha != null) ha.Grab();
                     _holdTimer = 0f;        // keep holding to repeat
                     HoldProgress = 0f;
@@ -194,7 +194,7 @@ namespace LaundryMonster
                 if (!_holdConsumed && _holdTimer > 0f)
                 {
                     Nearest.Interact(this);
-                    var ta = GetComponent<CharacterAnimator>();
+                    var ta = GetComponent<HeroAnimator>();
                     if (ta != null) ta.Grab();
                 }
             }

@@ -1,3 +1,4 @@
+using System.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -117,7 +118,7 @@ public static class RoomBuilder
         player.transform.position = new Vector3(0f, 0f, -2f);
         BuildPlayer(player.transform, shirtMat, skinMat);
         player.AddComponent<PlayerController>();
-        player.AddComponent<CharacterAnimator>();
+        player.AddComponent<HeroAnimator>();
 
         // ---- set dressing ----
         BuildDecor(root.transform);
@@ -315,11 +316,15 @@ public static class RoomBuilder
     {
         var path = $"Assets/Models/{folder}/{folder}.fbx";
 
-        // Generic rig, no clips: we drive the bones ourselves from code.
+        // Generic rig with an Avatar. The model file carries no clips of its own - those
+        // live in the person@<clip>.fbx files and bind through this Avatar.
         var imp = AssetImporter.GetAtPath(path) as ModelImporter;
-        if (imp != null && (imp.animationType != ModelImporterAnimationType.Generic || imp.importAnimation))
+        if (imp != null && (imp.animationType != ModelImporterAnimationType.Generic ||
+                            imp.avatarSetup != ModelImporterAvatarSetup.CreateFromThisModel ||
+                            imp.importAnimation))
         {
             imp.animationType = ModelImporterAnimationType.Generic;
+            imp.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
             imp.importAnimation = false;
             imp.SaveAndReimport();
         }
@@ -543,12 +548,46 @@ public static class RoomBuilder
         return go;
     }
 
+    /// <summary>
+    /// Put the Animator on the model child, matching the clip paths.
+    ///
+    /// Generic animation binds by transform path relative to the Animator's own object,
+    /// and the clips were exported with the armature directly under the FBX root - which
+    /// is this object. An Animator on the player root instead would look for the bones one
+    /// level too high and silently animate nothing.
+    /// </summary>
+    static void AttachHeroAnimator(GameObject model)
+    {
+        var ctrl = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(
+                       "Assets/Animation/Hero.controller");
+        if (ctrl == null)
+        {
+            Debug.LogWarning("[RoomBuilder] Hero.controller missing - run "
+                           + "Laundry Monster/Rebuild Hero Animation. Hero will not animate.");
+            return;
+        }
+
+        var avatar = AssetDatabase.LoadAllAssetsAtPath("Assets/Models/person/person.fbx")
+                                  .OfType<Avatar>().FirstOrDefault();
+
+        var anim = model.GetComponent<Animator>();
+        if (anim == null) anim = model.AddComponent<Animator>();
+        anim.runtimeAnimatorController = ctrl;
+        if (avatar != null) anim.avatar = avatar;
+        anim.applyRootMotion = false;
+        anim.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+    }
+
     static void BuildPlayer(Transform root, Material shirt, Material skin)
     {
         // Rigged first: the hero needs limbs that move independently.
-        if (AddRiggedModel(root, "Model", "person", Vector3.zero,
-                           Quaternion.Euler(0f, ModelYaw, 0f), Color.white, 0.15f) != null)
+        var rigged = AddRiggedModel(root, "Model", "person", Vector3.zero,
+                                    Quaternion.Euler(0f, ModelYaw, 0f), Color.white, 0.15f);
+        if (rigged != null)
+        {
+            AttachHeroAnimator(rigged);
             return;
+        }
         if (AddModel(root, "Model", "person", Vector3.zero,
                      Quaternion.Euler(0f, ModelYaw, 0f), Color.white, 0.15f) != null)
             return;
