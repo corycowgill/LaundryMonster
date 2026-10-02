@@ -83,9 +83,11 @@ You can never reach zero. That's the joke and it's also true.
 where you dump clean laundry when you're panicking, which is exactly what happens in real
 life.
 
-**The Monster meter** fills from your neglect — wrinkled garments, mildew, orphan socks,
-every second The Chair is over capacity. It does not fill on a timer. At thresholds it
-acts: steals a garment, jams a machine, tips The Chair over. Full = run over.
+**The Monster is a visible pile in the corner of the room**, not a HUD bar. It swells with
+every wrinkled garment, every mildewed load, every orphan sock, and every second The Chair
+is over capacity. It does not grow on a timer — it grows on your neglect, where you can see
+it. At thresholds it acts: steals a garment, jams a machine, tips The Chair over. Full =
+run over. Late in a run it should have eyes.
 
 ## 4. Tuning table (first-pass values, all seconds)
 
@@ -102,7 +104,7 @@ acts: steals a garment, jams a machine, tips The Chair over. Full = run over.
 | Lint clear (hold) | 2.0 |
 | Re-dry a wrinkled garment | 8 |
 | Washer / dryer capacity | 4 garments |
-| Player carry capacity | 2 loose, or 1 basket of 4 |
+| Player carry capacity | **2 garments** (no baskets — walking is the cost) |
 | Chair capacity | 8 |
 | Sock Void chance per wash | 15% |
 | Day length | 90 + 10*(N-1) |
@@ -130,10 +132,45 @@ in overnight).
 WASD / left stick — move. **E** — context interact (tap to pick up/drop, hold for timed
 actions). **Space** — dash. Timed actions show a fill bar; releasing early cancels.
 
-## 7. Open questions
+## 7. Failure policy — forgiving and recoverable
 
-- Is 15s of wrinkle grace cruel or correct? Needs playtesting first.
-- Does the player carry garments or baskets? Baskets reduce trips, which may remove the
-  pressure that makes it fun.
-- Should the Monster be visible in the room the whole time, growing?
-- Is scoring per-garment or per-day-rating (1–3 stars)?
+Mistakes cost **time**, not garments. The comedy dies if the game is bitter.
+
+| State | Recovery |
+|-------|----------|
+| Wrinkled | re-dry 8s → back to CLEAN&DRY |
+| Mildewed | re-wash → back to WET |
+| Dyed pink | a dust rag (3 orphan socks) restores it |
+| Ruined | **trash — pocket disasters only** |
+
+Only the pocket roulette permanently destroys garments. That's what gives the pocket check
+its teeth: it is the one gamble you cannot undo.
+
+## 8. Scoring — 1–3 stars per day
+
+Each day has a delivery target. Stars gate progression and give a clean replay goal.
+
+```
+DAY 4 COMPLETE
+
+  Delivered     18 / 22
+  Wrinkled       3
+  Ruined         1  (crayon)
+  Orphan socks   2
+
+  * * -      target was 20
+
+  [ RETRY ]   [ DAY 5 ]
+```
+
+Star thresholds: 1 star = 60% of target, 2 = 85%, 3 = 100%. Wrinkled garments still score
+but at half value; ruined ones score zero and feed the Monster.
+
+## 9. Open questions
+
+- Is 15s of wrinkle grace cruel or correct? Needs playtesting before it's worth arguing about.
+- Does the Monster block movement as it grows, or is it purely visual pressure?
+- Do machines need to be *loaded* one garment at a time, or does one interact dump all
+  carried garments in? (Leaning: dump all carried — the carry limit is already the cost.)
+- Audio is doing half the work in this genre. The washer buzzer needs to be genuinely
+  stressful.
