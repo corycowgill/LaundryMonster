@@ -19,6 +19,9 @@ namespace LaundryMonster
         public Transform MonsterPile;
         public Transform GarmentSpawnParent;
 
+        /// <summary>Generated folded-laundry mesh. Falls back to a cube when unset.</summary>
+        public Mesh GarmentMesh;
+
         [Header("Run state")]
         public int Day = 1;
         public Phase CurrentPhase = Phase.Playing;
@@ -281,19 +284,33 @@ namespace LaundryMonster
         Garment MakeGarment(GarmentKind kind)
         {
 
-            var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            go.name = "Garment_" + kind;
+            GameObject go;
+            Renderer rend;
+
+            if (GarmentMesh != null)
+            {
+                go = new GameObject("Garment_" + kind);
+                go.AddComponent<MeshFilter>().sharedMesh = GarmentMesh;
+                rend = go.AddComponent<MeshRenderer>();
+                // The mesh ships untextured on purpose: Garment tints the material to show
+                // state, and a photographic texture underneath would muddy those colours.
+                go.transform.localScale = kind == GarmentKind.Sock
+                    ? new Vector3(0.55f, 0.75f, 0.55f)
+                    : Vector3.one;
+            }
+            else
+            {
+                go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                go.name = "Garment_" + kind;
+                go.transform.localScale = kind == GarmentKind.Sock
+                    ? new Vector3(0.22f, 0.10f, 0.30f)
+                    : new Vector3(0.46f, 0.13f, 0.36f);
+                var col = go.GetComponent<Collider>();
+                if (col != null) Destroy(col);
+                rend = go.GetComponent<Renderer>();
+            }
+
             if (GarmentSpawnParent != null) go.transform.SetParent(GarmentSpawnParent, false);
-
-            // Flat and slightly wide, so a stack of them reads as folded laundry.
-            go.transform.localScale = kind == GarmentKind.Sock
-                ? new Vector3(0.22f, 0.10f, 0.30f)
-                : new Vector3(0.46f, 0.13f, 0.36f);
-
-            var col = go.GetComponent<Collider>();
-            if (col != null) Destroy(col);
-
-            var rend = go.GetComponent<Renderer>();
             var rp = UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline;
             if (rp != null && rp.defaultMaterial != null)
                 rend.sharedMaterial = new Material(rp.defaultMaterial);
@@ -345,14 +362,14 @@ namespace LaundryMonster
             if (MonsterPile == null) return;
 
             float f = Monster / Tuning.MonsterMax;
-            float s = Mathf.Lerp(0.35f, 3.2f, f);
-            MonsterPile.localScale = new Vector3(s, s * 0.75f, s);
+            float s = Mathf.Lerp(0.45f, 2.0f, f);
+            MonsterPile.localScale = new Vector3(s, s, s);
 
             if (_monsterMat != null)
             {
                 _monsterMat.color = Color.Lerp(
-                    new Color(0.30f, 0.28f, 0.26f),
-                    new Color(0.42f, 0.10f, 0.14f), f);
+                    Color.white,
+                    new Color(0.85f, 0.42f, 0.38f), f);
             }
         }
     }

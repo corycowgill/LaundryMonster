@@ -98,13 +98,17 @@ public static class RoomBuilder
         var monsterRoot = new GameObject("MonsterPile");
         monsterRoot.transform.SetParent(root.transform, false);
         monsterRoot.transform.position = new Vector3(-6.6f, 0.3f, 1.6f);
-        Child(monsterRoot.transform, "Body", PrimitiveType.Sphere, Vector3.zero, Vector3.one, monsterMat);
-        // A couple of lumps, so it reads as a heap rather than a ball.
-        Child(monsterRoot.transform, "Lump", PrimitiveType.Sphere,
-              new Vector3(0.45f, -0.15f, 0.20f), Vector3.one * 0.75f, monsterMat);
-        Child(monsterRoot.transform, "Lump", PrimitiveType.Sphere,
-              new Vector3(-0.40f, -0.20f, -0.25f), Vector3.one * 0.70f, monsterMat);
-        monsterRoot.transform.localScale = new Vector3(0.35f, 0.26f, 0.35f);
+        if (AddModel(monsterRoot.transform, "Model", "monster", Vector3.zero,
+                     Quaternion.Euler(0f, ModelYaw, 0f), Color.white, 0.1f) == null)
+        {
+            Child(monsterRoot.transform, "Body", PrimitiveType.Sphere, Vector3.zero, Vector3.one, monsterMat);
+            Child(monsterRoot.transform, "Lump", PrimitiveType.Sphere,
+                  new Vector3(0.45f, -0.15f, 0.20f), Vector3.one * 0.75f, monsterMat);
+            Child(monsterRoot.transform, "Lump", PrimitiveType.Sphere,
+                  new Vector3(-0.40f, -0.20f, -0.25f), Vector3.one * 0.70f, monsterMat);
+        }
+        monsterRoot.transform.position = new Vector3(-6.6f, 0f, 1.6f);
+        monsterRoot.transform.localScale = Vector3.one * 0.45f;
 
         // ---- player ----
         var player = new GameObject("Player");
@@ -121,6 +125,8 @@ public static class RoomBuilder
         var dir = dirGo.AddComponent<GameDirector>();
         dir.Hamper = hamperComp;
         dir.MonsterPile = monsterRoot.transform;
+
+        dir.GarmentMesh = LoadModelMesh("Assets/Models/folded/folded.fbx");
 
         var spawnParent = new GameObject("Garments");
         spawnParent.transform.SetParent(root.transform, false);
@@ -338,6 +344,10 @@ public static class RoomBuilder
 
     static void BuildPlayer(Transform root, Material shirt, Material skin)
     {
+        if (AddModel(root, "Model", "person", Vector3.zero,
+                     Quaternion.Euler(0f, ModelYaw, 0f), Color.white, 0.15f) != null)
+            return;
+
         Child(root, "Body", PrimitiveType.Capsule,
               new Vector3(0f, 0.62f, 0f), new Vector3(0.72f, 0.46f, 0.72f), shirt);
         Child(root, "Head", PrimitiveType.Sphere,
