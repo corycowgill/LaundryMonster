@@ -25,6 +25,12 @@ namespace LaundryMonster
         [Tooltip("Breathing room, as a fraction of the half-angle each point needs.")]
         public float Margin = 0.07f;
 
+        [Tooltip("Fraction of the half-height the room may use. The rest is left for the HUD bands.")]
+        public float VerticalSafe = 0.87f;
+
+        [Tooltip("Fraction of the half-width the room may use.")]
+        public float HorizontalSafe = 0.97f;
+
         public float MinFov = 30f;
         public float MaxFov = 74f;
 
@@ -57,11 +63,18 @@ namespace LaundryMonster
                 var local = transform.InverseTransformPoint(p);
                 if (local.z <= 0.05f) continue;
 
-                float byHeight = Mathf.Atan2(Mathf.Abs(local.y), local.z);
+                // Divided through the safe fractions, so a point has to fit inside the
+                // middle of the picture rather than merely inside its edges. Without this
+                // the solver is happy to put the tops of the machines at 90% of the
+                // half-height, which is underneath the day/objective/score cards - and it
+                // did, on every screen wider than 16:10.
+                float byHeight = Mathf.Atan2(Mathf.Abs(local.y), local.z)
+                               / Mathf.Clamp(VerticalSafe, 0.3f, 1f);
 
                 // A horizontal requirement becomes a vertical one by dividing through
                 // the aspect, because vertical fov is the only dial the camera has.
-                float byWidth = Mathf.Atan2(Mathf.Abs(local.x) / Mathf.Max(0.01f, aspect), local.z);
+                float byWidth = Mathf.Atan2(Mathf.Abs(local.x) / Mathf.Max(0.01f, aspect), local.z)
+                              / Mathf.Clamp(HorizontalSafe, 0.3f, 1f);
 
                 needed = Mathf.Max(needed, Mathf.Max(byHeight, byWidth));
             }

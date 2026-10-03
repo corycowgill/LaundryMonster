@@ -278,36 +278,49 @@ namespace LaundryMonster
 
         void BuildObjective(Transform parent)
         {
+            // 940x104, not 720x152. The top of the screen is the scarcest space on a
+            // landscape phone and the least scarce sideways, so the dots and the Skip
+            // chip move out of the text's way rather than underneath it. A third of the
+            // height back is the difference between this card clearing the machines and
+            // sitting on them.
             _objective = UiKit.Card(parent, "Objective", UiKit.Cream, UiKit.Navy, 7f);
             UiKit.Place(_objective, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                        new Vector2(0f, -26f), new Vector2(720f, 152f));
+                        new Vector2(0f, -14f), new Vector2(1000f, 116f));
 
-            _objectiveTitle = Head(_objective, "", 38, TextAnchor.UpperCenter);
-            _objectiveTitle.rectTransform.offsetMax = new Vector2(0f, -16f);
+            // Left-aligned, because the text block no longer owns the whole card.
+            _objectiveTitle = Head(_objective, "", 28, TextAnchor.UpperLeft);
+            _objectiveTitle.rectTransform.offsetMin = new Vector2(28f, 0f);
+            _objectiveTitle.rectTransform.offsetMax = new Vector2(-392f, -8f);
 
-            _objectiveBody = Body(_objective, "", 26, TextAnchor.UpperCenter);
-            _objectiveBody.rectTransform.offsetMax = new Vector2(0f, -62f);
+            // Two lines of 22 need 50 of the 72 this rect has. The first attempt gave it
+            // 50 for 54 and cut the last word off the tutorial's very first instruction.
+            _objectiveBody = Body(_objective, "", 22, TextAnchor.UpperLeft);
+            _objectiveBody.rectTransform.offsetMin = new Vector2(28f, 8f);
+            _objectiveBody.rectTransform.offsetMax = new Vector2(-392f, -44f);
+            _objectiveBody.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _objectiveBody.verticalOverflow = VerticalWrapMode.Overflow;
 
-            // Step dots: progress through the tutorial at a glance.
+            // Step dots: progress through the tutorial at a glance. Now a column's worth
+            // of width on the right rather than a row's worth of height underneath.
             var dots = new GameObject("Steps");
             dots.transform.SetParent(_objective, false);
             var drt = dots.AddComponent<RectTransform>();
-            UiKit.Place(drt, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                        new Vector2(-54f, 22f), new Vector2(300f, 24f));
+            UiKit.Place(drt, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
+                        new Vector2(-196f, 0f), new Vector2(230f, 20f));
 
             int total = (int)Tutorial.Step.Done;
             for (int i = 0; i < total; i++)
             {
                 var dot = UiKit.Block(dots.transform, "Dot", UiKit.Grey, UiKit.Disc);
                 UiKit.Place(dot.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
-                            new Vector2(i * 34f, 0f), new Vector2(20f, 20f));
+                            new Vector2(i * 28f, 0f), new Vector2(18f, 18f));
                 _steps.Add(dot);
             }
 
             _skipChip = UiKit.Card(_objective, "Skip", UiKit.CreamDim, UiKit.Navy, 3f, UiKit.Card9, false);
-            UiKit.Place(_skipChip, new Vector2(1f, 0f), new Vector2(1f, 0f),
-                        new Vector2(-26f, 16f), new Vector2(168f, 42f));
-            _skipKey = Body(_skipChip, "Skip  H", 24, TextAnchor.MiddleCenter);
+            UiKit.Place(_skipChip, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
+                        new Vector2(-22f, 0f), new Vector2(146f, 44f));
+            _skipKey = Body(_skipChip, "Skip  H", 22, TextAnchor.MiddleCenter);
         }
 
         // ---------- top right: the score ----------
@@ -1272,7 +1285,15 @@ namespace LaundryMonster
             {
                 if (b.Machine == null) continue;
 
-                var world = b.Machine.transform.position + new Vector3(0f, 1.62f, 0f);
+                // In FRONT of the machine, not above it.
+                //
+                // Above was fine at 16:9 and a collision on a phone: the machines sit
+                // near the top of the picture, so a badge above one lands in the strip
+                // the day, objective and score cards already own. On an iPhone in
+                // landscape all four badges were drawn across the tutorial card.
+                // The floor in front of a machine is empty at every aspect, and a label
+                // at a machine's feet still unmistakably belongs to that machine.
+                var world = b.Machine.transform.position + new Vector3(0f, 0.28f, -1.18f);
                 var sp = cam.WorldToScreenPoint(world);
                 bool visible = sp.z > 0f;
                 SetActive(b.Root.gameObject, visible);

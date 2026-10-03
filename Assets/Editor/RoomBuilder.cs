@@ -463,6 +463,14 @@ public static class RoomBuilder
         // at whatever shape the window turns out to be.
         var fr = cam.GetComponent<CameraFraming>();
         if (fr == null) fr = cam.gameObject.AddComponent<CameraFraming>();
+
+        // The room may use 87% of the half-height and 97% of the half-width; the rest is
+        // left for the HUD bands. Without the vertical figure the solver is happy to put
+        // the tops of the machines at 90% of the half-height, which is underneath the
+        // day, objective and score cards - and it did, on every screen wider than 16:10.
+        fr.VerticalSafe = 0.87f;
+        fr.HorizontalSafe = 0.97f;
+
         fr.MustSee = new[]
         {
             // The four corners the player can reach, at head height - the southern two

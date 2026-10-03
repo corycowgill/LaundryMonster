@@ -20,10 +20,10 @@ namespace LaundryMonster
     public class TouchControls : MonoBehaviour
     {
         [Tooltip("Travel from the stick's origin, in reference-resolution units, for full tilt.")]
-        public float StickRange = 170f;
+        public float StickRange = 150f;
 
         [Tooltip("Radius of the ACT button, in reference-resolution units.")]
-        public float ActRadius = 150f;
+        public float ActRadius = 132f;
 
         [Tooltip("Radius of the front-end help button, in reference-resolution units.")]
         public float HelpRadius = 85f;
@@ -189,7 +189,7 @@ namespace LaundryMonster
             float scale = _canvas != null && _canvas.scaleFactor > 0f ? _canvas.scaleFactor : 1f;
 
             Vector2 actCentreScreen = ActCentre() * scale;
-            float actRadiusScreen = ActRadius * scale * 1.15f;   // a little forgiveness
+            float actRadiusScreen = ActR * scale * 1.15f;   // a little forgiveness
             Vector2 helpCentreScreen = HelpCentre() * scale;
             float helpRadiusScreen = HelpRadius * scale * 1.25f;
             Vector2 pauseCentreScreen = PauseCentre() * scale;
@@ -265,7 +265,7 @@ namespace LaundryMonster
                     {
                         moveStillDown = true;
                         Vector2 delta = (pos - _moveOrigin) / scale;
-                        float range = Mathf.Max(StickRange, 1f);
+                        float range = Mathf.Max(StickR, 1f);
                         Vector2 v = delta / range;
                         if (v.sqrMagnitude > 1f) v.Normalize();
                         GameInput.TouchMove = v;
@@ -342,6 +342,24 @@ namespace LaundryMonster
         PlayerController _player;
 
         /// <summary>
+        /// How much to shrink the controls on a short canvas.
+        ///
+        /// The canvas scaler blends width and height, so a landscape phone ends up about
+        /// 980 units tall against the 1080 these sizes were picked in - and a 300-unit
+        /// button on a 980-unit canvas is a third of the screen. Scales with the height
+        /// actually available, with a floor so it never becomes unhittable.
+        /// </summary>
+        float Fit()
+        {
+            float sf = _canvas != null && _canvas.scaleFactor > 0f ? _canvas.scaleFactor : 1f;
+            float canvasHeight = Screen.height / sf;
+            return Mathf.Clamp(canvasHeight / RefHeight, 0.78f, 1f);
+        }
+
+        float ActR => ActRadius * Fit();
+        float StickR => StickRange * Fit();
+
+        /// <summary>
         /// The usable rectangle in reference-resolution units.
         ///
         /// Screen.safeArea is where the operating system promises nothing of its own
@@ -368,7 +386,7 @@ namespace LaundryMonster
         Vector2 ActCentre()
         {
             var s = Safe();
-            return new Vector2(s.xMax - ActRadius - 90f, s.yMin + ActRadius + 90f);
+            return new Vector2(s.xMax - ActR - 110f, s.yMin + ActR + 110f);
         }
 
         Vector2 HelpCentre()
@@ -377,11 +395,19 @@ namespace LaundryMonster
             return new Vector2(s.xMax - HelpRadius - 56f, s.yMin + HelpRadius + 56f);
         }
 
-        /// <summary>Top left, well away from the stick and the action button.</summary>
+        /// <summary>
+        /// Down the left edge, UNDER the day card rather than on top of it.
+        ///
+        /// The top-left corner is the day card's, and on a phone the two overlapped by
+        /// 148x148 pixels - the pause button was sitting on the clock. Both are anchored
+        /// to the same corner, so clearing the card's height works at every aspect.
+        /// </summary>
         Vector2 PauseCentre()
         {
             var s = Safe();
-            return new Vector2(s.xMin + PauseRadius + 40f, s.yMax - PauseRadius - 40f);
+            const float DayCardBottom = 174f;   // 24 inset + 150 tall
+            return new Vector2(s.xMin + PauseRadius + 28f,
+                               s.yMax - DayCardBottom - PauseRadius - 24f);
         }
 
         /// <summary>
@@ -392,11 +418,11 @@ namespace LaundryMonster
         {
             var s = Safe();
             // High enough to clear the Monster card, which occupies the same corner of
-            // the HUD: its top edge is at 140 and the ring's radius is StickRange * 1.05.
+            // the HUD: its top edge is at 140 and the ring's radius is StickR * 1.05.
             const float HudBottomLeftTop = 140f;
-            float y = Mathf.Max(s.yMin + StickRange + 70f,
-                                s.yMin + HudBottomLeftTop + StickRange * 1.05f + 16f);
-            return new Vector2(s.xMin + StickRange + 70f, y);
+            float y = Mathf.Max(s.yMin + StickR + 70f,
+                                s.yMin + HudBottomLeftTop + StickR * 1.05f + 16f);
+            return new Vector2(s.xMin + StickR + 70f, y);
         }
 
         void SetVisible(bool on)
@@ -405,6 +431,13 @@ namespace LaundryMonster
 
             bool playing = _dir == null || _dir.AcceptsInput;
             bool stick = on && playing && _moveTouchId >= 0;
+
+            // Re-fitted every frame: the canvas changes shape when a browser window is
+            // resized or a phone is turned, and these were built at one fixed size.
+            _stickRing.sizeDelta = Vector2.one * StickR * 1.05f;
+            _stickKnob.sizeDelta = Vector2.one * StickR * 0.46f;
+            _stickHome.sizeDelta = _stickRing.sizeDelta;
+            _stickHomeKnob.sizeDelta = _stickKnob.sizeDelta;
 
             _stickRing.gameObject.SetActive(stick);
             _stickKnob.gameObject.SetActive(stick);
@@ -423,6 +456,7 @@ namespace LaundryMonster
             _actButton.gameObject.SetActive(on && playing);
             if (on && playing)
             {
+                _actButton.sizeDelta = Vector2.one * ActR * 2f;
                 _actButton.anchoredPosition = ActCentre();
                 UpdateActLabel();
             }
