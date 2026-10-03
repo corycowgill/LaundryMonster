@@ -20,6 +20,17 @@ public static class RoomBuilder
     /// <summary>Yaw applied to generated models so they face into the room.</summary>
     const float ModelYaw = 180f;
 
+    /// <summary>
+    /// The hero needs no yaw correction, unlike every other generated model.
+    ///
+    /// The props still come from the original image-to-3D pipeline, which produced
+    /// meshes facing away from the room. The hero's mesh was re-exported from Blender
+    /// when the rig was rebuilt, and came out facing the other way. Leaving ModelYaw on
+    /// him pointed the model 180 degrees from the direction PlayerController steers, so
+    /// he walked backwards - the mocap was fine, the model was turned around.
+    /// </summary>
+    const float HeroYaw = 0f;
+
     [MenuItem("Laundry Monster/Build Room")]
     public static string BuildRoom()
     {
@@ -231,12 +242,21 @@ public static class RoomBuilder
         Child(d, "Downpipe", PrimitiveType.Cylinder, new Vector3(-7.9f, 1.4f, 7.3f),
               new Vector3(0.11f, 1.4f, 0.11f), steel);
 
-        // --- ceiling strip light housings, where the point lights actually are ---
+        // --- strip light housings, mounted high over the machine row ---
+        //
+        // They used to hang mid-room at y 3.22, z 3.2. The camera looks down the room at
+        // 48 degrees from (0, 11.5, -9.5), and from there a housing out in the middle of
+        // the room projects within a fraction of a degree of the tops of the machines
+        // behind it - so the fixtures sat squarely over the washers and the Monster and
+        // hid what the player needed to read.
+        //
+        // Back against the wall and lower, they clear the machine tops by about five
+        // degrees, and they end up where a laundromat would actually put them.
         foreach (var lx in new[] { -3.2f, 3.2f })
         {
-            Child(d, "LightHousing", PrimitiveType.Cube, new Vector3(lx, 3.22f, 3.2f),
+            Child(d, "LightHousing", PrimitiveType.Cube, new Vector3(lx, 2.62f, 6.6f),
                   new Vector3(2.6f, 0.12f, 0.45f), dark);
-            Child(d, "LightTube", PrimitiveType.Cylinder, new Vector3(lx, 3.13f, 3.2f),
+            Child(d, "LightTube", PrimitiveType.Cylinder, new Vector3(lx, 2.53f, 6.6f),
                   new Vector3(0.11f, 1.2f, 0.11f), Mat(new Color(1f, 1f, 0.95f), 0.1f))
                 .transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
         }
@@ -585,14 +605,14 @@ public static class RoomBuilder
     {
         // Rigged first: the hero needs limbs that move independently.
         var rigged = AddRiggedModel(root, "Model", "person", Vector3.zero,
-                                    Quaternion.Euler(0f, ModelYaw, 0f), Color.white, 0.15f);
+                                    Quaternion.Euler(0f, HeroYaw, 0f), Color.white, 0.15f);
         if (rigged != null)
         {
             AttachHeroAnimator(rigged);
             return;
         }
         if (AddModel(root, "Model", "person", Vector3.zero,
-                     Quaternion.Euler(0f, ModelYaw, 0f), Color.white, 0.15f) != null)
+                     Quaternion.Euler(0f, HeroYaw, 0f), Color.white, 0.15f) != null)
             return;
 
         Child(root, "Body", PrimitiveType.Capsule,
