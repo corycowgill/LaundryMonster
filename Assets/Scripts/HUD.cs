@@ -49,8 +49,15 @@ namespace LaundryMonster
         Text _deliveredText, _scoreText;
 
         // bottom left
-        Text _monsterLabel;
+        Text _monsterLabel, _backlogText;
         readonly List<Image> _monsterSegs = new List<Image>();
+
+        // the snatch warning, pinned over The Chair
+        RectTransform _snatchCard;
+        Text _snatchText;
+        Image _snatchRing;
+        MonsterAttack _attack;
+        Chair _chair;
 
         // bottom centre
         RectTransform _actionBar;
@@ -144,6 +151,7 @@ namespace LaundryMonster
             BuildDelivered(_gameplay.transform);
             BuildMonster(_gameplay.transform);
             BuildActionBar(_gameplay.transform);
+            BuildSnatchWarning(_gameplay.transform);
             BuildFlash(_gameplay.transform);
 
             BuildFrontEnd(root);
@@ -301,9 +309,15 @@ namespace LaundryMonster
             UiKit.Place(card, new Vector2(0f, 0f), new Vector2(0f, 0f),
                         new Vector2(36f, 36f), new Vector2(470f, 120f));
 
-            _monsterLabel = Head(card, "MONSTER", 36, TextAnchor.UpperLeft);
+            _monsterLabel = Head(card, "ANGER", 34, TextAnchor.UpperLeft);
             _monsterLabel.rectTransform.offsetMin = new Vector2(30f, 0f);
             _monsterLabel.rectTransform.offsetMax = new Vector2(-24f, -14f);
+
+            // Backlog is a different quantity from anger and is labelled as one: it is
+            // what makes the Monster BIG, where anger is what makes it dangerous.
+            _backlogText = Body(card, "", 24, TextAnchor.UpperRight);
+            _backlogText.rectTransform.offsetMin = new Vector2(30f, 0f);
+            _backlogText.rectTransform.offsetMax = new Vector2(-28f, -20f);
 
             // Segments, not a smooth bar: you can count how many you have left.
             var segs = new GameObject("Segments");
@@ -427,6 +441,63 @@ namespace LaundryMonster
                     Pill = pill, RingBack = ringBack, RingFill = ringFill,
                 });
             }
+        }
+
+        /// <summary>
+        /// The countdown over The Chair while the Monster is reaching for it.
+        ///
+        /// Pinned to the chair in world space rather than parked in a corner, because the
+        /// player has to know WHICH thing is in danger and where to run. Three seconds is
+        /// only generous if you can see where to go.
+        /// </summary>
+        void BuildSnatchWarning(Transform parent)
+        {
+            _snatchCard = UiKit.Card(parent, "Snatch", UiKit.Cream, UiKit.Red, 6f);
+            UiKit.Place(_snatchCard, new Vector2(0f, 0f), new Vector2(0.5f, 0.5f),
+                        Vector2.zero, new Vector2(300f, 76f));
+
+            _snatchText = Head(_snatchCard, "GRAB IT!", 30, TextAnchor.MiddleLeft, UiKit.Red);
+            _snatchText.rectTransform.offsetMin = new Vector2(22f, 0f);
+            _snatchText.rectTransform.offsetMax = new Vector2(-72f, 0f);
+
+            var back = UiKit.Block(_snatchCard, "RingBack", UiKit.Grey, UiKit.Ring);
+            UiKit.Place(back.rectTransform, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
+                        new Vector2(-16f, 0f), new Vector2(46f, 46f));
+
+            _snatchRing = UiKit.Block(_snatchCard, "RingFill", UiKit.Red, UiKit.Ring);
+            UiKit.Place(_snatchRing.rectTransform, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
+                        new Vector2(-16f, 0f), new Vector2(46f, 46f));
+            _snatchRing.type = Image.Type.Filled;
+            _snatchRing.fillMethod = Image.FillMethod.Radial360;
+            _snatchRing.fillOrigin = (int)Image.Origin360.Top;
+            _snatchRing.fillClockwise = false;
+
+            _snatchCard.gameObject.SetActive(false);
+        }
+
+        void UpdateSnatchWarning()
+        {
+            if (_snatchCard == null) return;
+            if (_attack == null) _attack = Object.FindAnyObjectByType<MonsterAttack>();
+            if (_chair == null) _chair = Object.FindAnyObjectByType<Chair>();
+
+            bool on = _attack != null && _attack.Attacking && _chair != null;
+            SetActive(_snatchCard.gameObject, on);
+            if (!on) return;
+
+            var cam = Camera.main;
+            if (cam == null) return;
+            var sp = cam.WorldToScreenPoint(_chair.transform.position + new Vector3(0f, 1.6f, 0f));
+            if (sp.z <= 0f) { SetActive(_snatchCard.gameObject, false); return; }
+            _snatchCard.position = sp;
+
+            _snatchRing.fillAmount = 1f - _attack.Progress;
+            _snatchText.text = "GRAB IT!  " + Mathf.CeilToInt(_attack.TimeLeft) + "s";
+
+            // Flash the card as the time runs out.
+            UiKit.SetCardColors(_snatchCard,
+                                Color.Lerp(UiKit.Cream, UiKit.Red, UiKit.Pulse(10f) * 0.35f),
+                                UiKit.Red);
         }
 
         // ================= front end =================
@@ -743,6 +814,7 @@ namespace LaundryMonster
             UpdateMonster();
             UpdateObjective();
             UpdateBadges();
+            UpdateSnatchWarning();
             UpdateActionBar();
             UpdateFlash();
             if (ph == Phase.DaySummary || ph == Phase.RunOver) UpdateSummary();
@@ -812,8 +884,13 @@ namespace LaundryMonster
                 _monsterSegs[i].color = c;
             }
 
-            _monsterLabel.text = frac > 0.75f ? "MONSTER - it has eyes now" : "MONSTER";
-            _monsterLabel.fontSize = frac > 0.75f ? 26 : 36;
+            _monsterLabel.text = frac > 0.75f ? "ANGER - it has eyes now" : "ANGER";
+            _monsterLabel.fontSize = frac > 0.75f ? 26 : 34;
+
+            int backlog = _dir.Backlog;
+            _backlogText.text = backlog + " waiting";
+            _backlogText.color = backlog >= Tuning.MonsterFullPile
+                ? UiKit.Red : new Color(UiKit.Navy.r, UiKit.Navy.g, UiKit.Navy.b, 0.7f);
         }
 
         void UpdateObjective()

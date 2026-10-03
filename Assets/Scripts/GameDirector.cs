@@ -612,7 +612,19 @@ namespace LaundryMonster
             Score += g.FoldedWrinkled ? Tuning.PointsWrinkled : Tuning.PointsClean;
             Delivered++;
             _all.Remove(g);
+
+            // A clean delivery calms the Monster. A wrinkled one does not - it is laundry
+            // you let spoil, so finishing it late is not an apology. This is the only way
+            // anger goes down, which is what makes "finish things properly" the answer to
+            // the question the Monster is asking.
+            if (!g.FoldedWrinkled) AddMonster(-Tuning.AngerPerCleanDelivery);
         }
+
+        /// <summary>Anger as a 0..1 fraction. What the Monster attacks on, and loses on.</summary>
+        public float AngerFraction => Tuning.MonsterMax <= 0f ? 0f : Monster / Tuning.MonsterMax;
+
+        /// <summary>Dirty laundry waiting. What the Monster is SIZED by.</summary>
+        public int Backlog => Hamper != null ? Hamper.Waiting.Count : 0;
 
         public void OnGarmentSpoiled(Garment g, GarmentState newState)
         {

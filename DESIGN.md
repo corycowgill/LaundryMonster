@@ -44,6 +44,31 @@ turn into inside the drum: mildewed goes back in a washer, wrinkled back in a dr
 Machine state tracks *the cycle*, not the garments, precisely so that a load cannot
 become stuck by spoiling where it sits.
 
+## 2y. Anger, backlog, and the Chair Snatch
+
+Two different numbers, shown as two different things:
+
+| | is | drives | shown as |
+|---|---|---|---|
+| **backlog** | dirty laundry waiting | how BIG the Monster is | `N waiting` on the Monster card |
+| **anger** | accumulated neglect | whether it ATTACKS, and whether you lose | the segmented ANGER bar |
+
+Anger rises from spoilage, overflow and unfinished laundry at closing. The only thing
+that lowers it is a **clean** delivery — a wrinkled one does not count, because that is
+laundry you already let spoil. Finishing things properly is the answer to the question
+the Monster is asking.
+
+**Chair Snatch.** Above `AngerAttackFraction` the Monster occasionally reaches over and
+takes one garment off The Chair. It is built to be survivable: it growls, it leans, a
+countdown appears pinned over the Chair, and you get `SnatchTelegraph` seconds to grab
+the garment. If it lands, the garment goes back to **dirty** and returns to the backlog —
+it is not destroyed. The cost is work you have to redo, which is the subject of the game;
+it is never a loss you could not see coming.
+
+It never targets an empty Chair, a destroyed garment, or something already in your arms;
+it runs one attack at a time with a cooldown; and it does not act while paused, on a
+summary, or between days.
+
 ## 2z. The teaching schedule
 
 One new rule per day, each introduced before it can hurt you. A locked hazard is

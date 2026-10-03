@@ -133,6 +133,24 @@ namespace LaundryMonster
         public const float MonsterPerChairOverflowSecond = 0.5f;
         public const float MonsterMax = 30f;
 
+        // --- the Monster reaches for The Chair ---
+        //
+        // Anger and backlog are different things and are shown differently. BACKLOG is how
+        // much dirty laundry is waiting and it sets how big the Monster looks. ANGER is
+        // accumulated neglect, it is what ends the run, and it is what makes the Monster
+        // reach out and take something off The Chair.
+        //
+        // Every attack is survivable: it is announced, it takes a visible three seconds,
+        // and the garment is dumped back in the dirty pile rather than destroyed. The cost
+        // is the work you have to redo, not a loss you could not see coming.
+        public const float AngerAttackFraction = 0.45f;   // of MonsterMax before it reaches
+        public const float SnatchTelegraph = 3.0f;        // seconds to rescue it
+        public const float SnatchCooldown = 14f;          // between attempts
+        public const float SnatchChancePerSecond = 0.10f; // once armed and off cooldown
+
+        /// <summary>Clean deliveries calm it. Wrinkled ones do not - they are the problem.</summary>
+        public const float AngerPerCleanDelivery = 0.45f;
+
         // --- closing out the day ---
         //
         // Laundry left anywhere at closing - hamper, machine, chair, your arms - feeds the

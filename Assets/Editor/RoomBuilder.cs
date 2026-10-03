@@ -120,6 +120,7 @@ public static class RoomBuilder
         monsterRoot.transform.position = new Vector3(-5.9f, 0f, 4.6f);
         monsterRoot.transform.localScale = Vector3.one * Tuning.MonsterMinScale;
         monsterRoot.AddComponent<MonsterAnimator>();
+        monsterRoot.AddComponent<MonsterAttack>();
 
         var hamperComp = monsterRoot.AddComponent<Hamper>();
         hamperComp.InteractRadius = 2.9f;          // it is big, so reach it from further out

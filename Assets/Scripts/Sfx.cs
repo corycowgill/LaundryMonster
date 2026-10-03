@@ -60,6 +60,12 @@ namespace LaundryMonster
         /// <summary>Lint trap emptied. Quietly satisfying, never triumphant - it fixed nothing yet.</summary>
         public static AudioClip LintClear => Sequence("lintClear", new[] { 440f, 320f }, 0.07f, 0.22f, false);
 
+        /// <summary>The Monster is reaching for The Chair. Low, rising, unmistakable.</summary>
+        public static AudioClip Growl => Sweep("growl", 70f, 160f, 0.75f, 0.5f, true);
+
+        /// <summary>It got one. Downward, final.</summary>
+        public static AudioClip Snatch => Sweep("snatch", 420f, 90f, 0.4f, 0.5f, true);
+
         // ---------- synthesis ----------
 
         /// <summary>A run of tones back to back, each with a click-free envelope.</summary>

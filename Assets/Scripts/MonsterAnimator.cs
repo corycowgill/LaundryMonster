@@ -37,6 +37,20 @@ namespace LaundryMonster
             _lastTarget = TargetScale;
         }
 
+        float _reach;          // seconds of reaching left
+        float _reachTotal;
+
+        /// <summary>
+        /// Lean out toward The Chair for the duration of a snatch attempt. Purely a
+        /// telegraph: the attack is decided by MonsterAttack, this just makes it obvious
+        /// that something is happening and roughly how far along it is.
+        /// </summary>
+        public void Reach(float seconds)
+        {
+            _reach = seconds;
+            _reachTotal = Mathf.Max(0.01f, seconds);
+        }
+
         /// <summary>Call when the Monster has just been fed, for a visible reaction.</summary>
         public void React(float amount)
         {
@@ -67,7 +81,18 @@ namespace LaundryMonster
             // A lazy sway, plus a quicker wobble while it is reacting.
             float sway = Mathf.Sin(Time.time * SwaySpeed) * SwayDegrees;
             float wobble = pop * 22f;
-            transform.localRotation = Quaternion.Euler(0f, sway * 0.6f, sway + wobble);
+
+            // Reaching: lean further the closer it is to taking something, with a shiver
+            // on top so it reads as straining rather than merely tilted.
+            float lean = 0f;
+            if (_reach > 0f)
+            {
+                _reach = Mathf.Max(0f, _reach - Time.deltaTime);
+                float t = 1f - (_reach / _reachTotal);
+                lean = Mathf.Lerp(6f, 26f, t) + Mathf.Sin(Time.time * 26f) * 2.5f * t;
+            }
+
+            transform.localRotation = Quaternion.Euler(lean * 0.35f, sway * 0.6f, sway + wobble + lean);
         }
     }
 }
