@@ -212,8 +212,14 @@ namespace LaundryMonster
         /// Rolls for every unchecked pocketed garment in the drum.
         /// Returns false if the load cannot run at all (tissue).
         /// </summary>
+        /// <summary>The day in progress, or 1 when there is no director yet.</summary>
+        static int CurrentDay => GameDirector.Instance != null ? GameDirector.Instance.Day : 1;
+
         bool ResolvePockets()
         {
+            // Pocket roulette has not been introduced. Nothing to gamble on.
+            if (!Tuning.PocketsActive(CurrentDay)) return Contents.Count > 0;
+
             if (MachineMode != Mode.Washer) return true;
 
             var gambling = new List<Garment>();
@@ -395,7 +401,8 @@ namespace LaundryMonster
                         g.DecayMultiplier = 1f; // the clock starts the moment the cycle ends
                     }
                     // The Sock Void takes its cut on the way out of the washer.
-                    if (MachineMode == Mode.Washer && Random.value < Tuning.SockVoidChance)
+                    if (MachineMode == Mode.Washer && Tuning.SocksActive(CurrentDay)
+                        && Random.value < Tuning.SockVoidChance)
                     {
                         Garment doomed = null;
                         foreach (var g in Contents) if (g.IsSock && !g.Paired) { doomed = g; break; }
@@ -406,7 +413,7 @@ namespace LaundryMonster
                         }
                     }
 
-                    if (MachineMode == Mode.Dryer)
+                    if (MachineMode == Mode.Dryer && Tuning.LintActive(CurrentDay))
                     {
                         Lint = Mathf.Min(Tuning.LintMax, Lint + Tuning.LintPerDryCycle);
                         if (Lint == Tuning.LintSlowThreshold)

@@ -54,6 +54,35 @@ namespace LaundryMonster
         public const int CarryCapacity = 2;    // walking is the cost
         public const int ChairCapacity = 8;
 
+        // --- what the game has taught you so far ---
+        //
+        // Every system arrives on its own day, with its own explanation, so the player
+        // meets one new rule at a time instead of five at once. A hazard that has not
+        // been introduced cannot fire: it is switched off at the source rather than
+        // merely hidden, because a player punished by a rule nobody mentioned does not
+        // learn the rule, they learn that the game is unfair.
+        public const int DaySpoilage = 2;   // wrinkles and mildew, and how to recover
+        public const int DayLint     = 3;   // the lint trap
+        public const int DayPockets  = 4;   // pocket roulette
+        public const int DaySocks    = 5;   // socks, orphans, the Void, dust rags
+
+        public static bool SpoilageActive(int day) => day >= DaySpoilage;
+        public static bool LintActive(int day) => day >= DayLint;
+        public static bool PocketsActive(int day) => day >= DayPockets;
+        public static bool SocksActive(int day) => day >= DaySocks;
+
+        /// <summary>The system unlocking on this day, or None.</summary>
+        public enum Unlock { None, Spoilage, Lint, Pockets, Socks }
+
+        public static Unlock UnlockFor(int day)
+        {
+            if (day == DaySpoilage) return Unlock.Spoilage;
+            if (day == DayLint) return Unlock.Lint;
+            if (day == DayPockets) return Unlock.Pockets;
+            if (day == DaySocks) return Unlock.Socks;
+            return Unlock.None;
+        }
+
         // --- day shape ---
         //
         // A batch is the unit of work, not a garment: two trips to fill a washer (you

@@ -79,6 +79,10 @@ namespace LaundryMonster
         Text _summaryTitle, _summaryStats, _summaryAction;
         readonly List<Image> _stars = new List<Image>();
 
+        // briefing
+        GameObject _briefing;
+        Text _briefTitle, _briefBody, _briefAction;
+
         // credits
         Text _creditsText, _creditsHint;
         RectTransform _creditsScroll;
@@ -144,6 +148,7 @@ namespace LaundryMonster
 
             BuildFrontEnd(root);
             BuildSummary(root);
+            BuildBriefing(root);
             BuildCredits(root);
         }
 
@@ -611,6 +616,64 @@ namespace LaundryMonster
             _summary.SetActive(false);
         }
 
+        /// <summary>
+        /// The card that introduces one system, on the day it unlocks. Deliberately a full
+        /// stop rather than a toast: it is the only time the game explains a rule before
+        /// the rule can hurt you, so it is worth a button press.
+        /// </summary>
+        void BuildBriefing(Transform root)
+        {
+            _briefing = Panel(root, "Briefing");
+
+            var dim = UiKit.Block(_briefing.transform, "Dim",
+                                  new Color(UiKit.NavyDeep.r, UiKit.NavyDeep.g,
+                                            UiKit.NavyDeep.b, 0.82f), UiKit.White);
+            dim.rectTransform.anchorMin = Vector2.zero;
+            dim.rectTransform.anchorMax = Vector2.one;
+            dim.rectTransform.offsetMin = Vector2.zero;
+            dim.rectTransform.offsetMax = Vector2.zero;
+            dim.type = Image.Type.Simple;
+
+            var card = UiKit.Card(_briefing.transform, "Card", UiKit.Cream, UiKit.Navy, 7f);
+            UiKit.Place(card, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                        Vector2.zero, new Vector2(1020f, 620f));
+
+            var ribbon = UiKit.Block(card, "Ribbon", UiKit.Yellow, UiKit.Card9);
+            UiKit.Place(ribbon.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                        new Vector2(0f, -28f), new Vector2(330f, 50f));
+            var ribbonText = Body(ribbon.transform, "NEW TODAY", 26, TextAnchor.MiddleCenter);
+            ribbonText.rectTransform.anchorMin = Vector2.zero;
+            ribbonText.rectTransform.anchorMax = Vector2.one;
+
+            _briefTitle = Head(card, "", 58, TextAnchor.UpperCenter);
+            _briefTitle.rectTransform.offsetMax = new Vector2(0f, -92f);
+
+            _briefBody = Body(card, "", 27, TextAnchor.UpperLeft);
+            _briefBody.rectTransform.offsetMin = new Vector2(58f, 142f);
+            _briefBody.rectTransform.offsetMax = new Vector2(-58f, -172f);
+            // Prose, not a label: it has to wrap inside the card rather than run off it.
+            _briefBody.horizontalOverflow = HorizontalWrapMode.Wrap;
+
+            var action = UiKit.Card(card, "Go", UiKit.Yellow, UiKit.Navy, 5f);
+            UiKit.Place(action, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
+                        new Vector2(0f, 32f), new Vector2(520f, 76f));
+            _briefAction = Head(action, "", 34, TextAnchor.MiddleCenter);
+
+            _briefing.SetActive(false);
+        }
+
+        void UpdateBriefing()
+        {
+            var card = Briefings.For(_dir.PendingUnlock);
+            _briefTitle.text = card.Title;
+
+            // Warning, consequence, recovery - always in that order, always all three.
+            _briefBody.text = card.Warning
+                            + "\n\n" + card.Consequence
+                            + "\n\n" + card.Recovery;
+            _briefAction.text = GameInput.ConfirmGlyph + "   start day " + _dir.Day;
+        }
+
         // ================= credits =================
 
         void BuildCredits(Transform root)
@@ -661,12 +724,14 @@ namespace LaundryMonster
             if (_tutorial == null) _tutorial = Object.FindAnyObjectByType<Tutorial>();
 
             var ph = _dir.CurrentPhase;
-            bool playing = ph == Phase.Playing || ph == Phase.DaySummary;
+            bool playing = ph == Phase.Playing || ph == Phase.DaySummary || ph == Phase.Briefing;
             bool front = ph == Phase.Intro || ph == Phase.Title || ph == Phase.Help;
 
             SetActive(_gameplay, playing);
             SetActive(_front, front);
             SetActive(_credits, ph == Phase.Credits);
+            SetActive(_briefing, ph == Phase.Briefing);
+            if (ph == Phase.Briefing) UpdateBriefing();
             SetActive(_summary, ph == Phase.DaySummary || ph == Phase.RunOver);
 
             if (ph == Phase.Credits) UpdateCredits();
@@ -754,7 +819,10 @@ namespace LaundryMonster
         void UpdateObjective()
         {
             bool teaching = _tutorial != null && _tutorial.Running;
-            bool dayOneHint = !teaching && _dir.Day == 1 && _dir.FlashTimer <= 0f;
+            // Show the nudge on any day that is still teaching something, not only day one.
+            bool dayOneHint = !teaching && _dir.FlashTimer <= 0f
+                              && _dir.Day <= Tuning.DaySocks
+                              && !string.IsNullOrEmpty(Briefings.Hint(_dir.Day, _player));
 
             SetActive(_objective.gameObject, teaching || dayOneHint);
             if (!teaching && !dayOneHint) return;
@@ -781,10 +849,8 @@ namespace LaundryMonster
             }
             else
             {
-                _objectiveTitle.text = "GET STARTED";
-                _objectiveBody.text = _player != null && _player.Carried.Count == 0
-                    ? GameInput.MoveGlyph + " to move. Pull laundry off the Monster."
-                    : "Wash it, dry it, fold it, put it away.";
+                _objectiveTitle.text = _dir.Day == 1 ? "GET STARTED" : "TODAY";
+                _objectiveBody.text = Briefings.Hint(_dir.Day, _player);
                 UiKit.SetCardColors(_objective, UiKit.Cream, UiKit.Navy);
             }
         }

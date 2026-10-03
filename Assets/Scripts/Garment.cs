@@ -130,6 +130,11 @@ namespace LaundryMonster
         {
             if (!IsDecaying || DecayMultiplier <= 0f) return;
 
+            // Spoilage has not been introduced yet. The clock does not even start, so the
+            // garment never flushes amber and nothing warns about a rule that cannot fire.
+            var dir = GameDirector.Instance;
+            if (dir != null && !Tuning.SpoilageActive(dir.Day)) return;
+
             StateTimer += dt * DecayMultiplier;
 
             if (State == GarmentState.Wet && StateTimer >= Tuning.MildewGrace)

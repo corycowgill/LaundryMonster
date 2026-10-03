@@ -4,7 +4,7 @@ using UnityEngine.InputSystem;
 
 namespace LaundryMonster
 {
-    public enum Phase { Intro, Title, Help, Credits, Playing, DaySummary, RunOver }
+    public enum Phase { Intro, Title, Help, Credits, Briefing, Playing, DaySummary, RunOver }
 
     /// <summary>
     /// Runs the day: spawns laundry, ticks every decay clock, scores deliveries,
@@ -136,6 +136,9 @@ namespace LaundryMonster
         /// <summary>No more laundry is coming; what is left is the finishing period.</summary>
         public bool ArrivalsDone => _spawnIndex >= _spawnTimes.Count;
 
+        /// <summary>The system being introduced on the briefing card, if one is up.</summary>
+        public Tuning.Unlock PendingUnlock { get; private set; }
+
         void Awake()
         {
             Instance = this;
@@ -169,7 +172,11 @@ namespace LaundryMonster
         public void BeginDay(int day)
         {
             Day = day;
-            CurrentPhase = Phase.Playing;
+
+            // A day that introduces something opens on its briefing. IsRunning is false
+            // there, so nothing ticks while the player reads it.
+            PendingUnlock = Tuning.UnlockFor(day);
+            CurrentPhase = PendingUnlock == Tuning.Unlock.None ? Phase.Playing : Phase.Briefing;
             DayTimer = 0f;
             DayLength = Tuning.DayLength(day);
             Score = 0f;
@@ -261,6 +268,10 @@ namespace LaundryMonster
 
                 case Phase.Credits:
                     if (go || back) CurrentPhase = Phase.Title;
+                    break;
+
+                case Phase.Briefing:
+                    if (go || back) { PendingUnlock = Tuning.Unlock.None; CurrentPhase = Phase.Playing; }
                     break;
 
                 // (the title's own confirm is handled by TitleConfirm below)
@@ -490,7 +501,7 @@ namespace LaundryMonster
 
         void SpawnGarment()
         {
-            var kind = (GarmentKind)Random.Range(0, 5);
+            var kind = RollKind();
 
             // Socks arrive two at a time, sharing a pair id. They rarely leave that way.
             if (kind == GarmentKind.Sock)
@@ -512,6 +523,23 @@ namespace LaundryMonster
                 return;
             }
             MakeGarment(kind);
+        }
+
+        /// <summary>
+        /// Pick a garment kind from the ones this day knows about.
+        ///
+        /// Socks are excluded until the day they are introduced - not hidden, not made
+        /// rare, simply not dealt. A player who has never been told about pairing should
+        /// not be holding an unmatchable sock.
+        /// </summary>
+        GarmentKind RollKind()
+        {
+            if (Tuning.SocksActive(Day)) return (GarmentKind)Random.Range(0, 5);
+
+            // Shirt, Pants, Towel, Delicate - every kind except Sock. Delicates have no
+            // special handling yet, so they are an ordinary garment with a different mesh.
+            var kind = (GarmentKind)Random.Range(0, 4);
+            return kind == GarmentKind.Sock ? GarmentKind.Delicate : kind;
         }
 
         Garment MakeGarment(GarmentKind kind)
@@ -569,7 +597,10 @@ namespace LaundryMonster
             g.Kind = kind;
             g.BaseColor = Garment.Palette[Random.Range(0, Garment.Palette.Length)];
             g.State = GarmentState.Dirty;
-            g.HasPockets = kind == GarmentKind.Pants || Random.value < Tuning.PocketChanceOnNonPants;
+            // Before pocket day nothing has pockets, so the prompt never offers a check
+            // and the roulette has nothing to spin.
+            g.HasPockets = Tuning.PocketsActive(Day)
+                && (kind == GarmentKind.Pants || Random.value < Tuning.PocketChanceOnNonPants);
 
             _all.Add(g);
             if (Hamper != null) Hamper.Add(g);

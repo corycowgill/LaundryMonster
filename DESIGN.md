@@ -44,6 +44,28 @@ turn into inside the drum: mildewed goes back in a washer, wrinkled back in a dr
 Machine state tracks *the cycle*, not the garments, precisely so that a load cannot
 become stuck by spoiling where it sits.
 
+## 2z. The teaching schedule
+
+One new rule per day, each introduced before it can hurt you. A locked hazard is
+switched off at the source, not merely hidden — a player punished by a rule nobody
+mentioned does not learn the rule, they learn that the game is unfair.
+
+| day | unlocks | until then |
+|---|---|---|
+| 1 | wash → dry → fold → deliver | nothing spoils, nothing goes wrong |
+| 2 | wrinkles and mildew, and recovery | decay clocks do not run at all |
+| 3 | the lint trap | dry cycles add no lint |
+| 4 | pocket roulette | no garment has pockets |
+| 5 | socks, orphans, the Void, dust rags | socks are not dealt |
+
+Delicates stay mechanically identical to any other garment until they have special
+handling of their own; today they are a different mesh and nothing more.
+
+A day that unlocks something opens on a briefing card, which always answers the same
+three questions in the same order — what goes wrong, what it costs, what you do about
+it — and names controls from the device in the player's hands. After that the objective
+card carries a one-line contextual nudge for the rest of that day.
+
 ## 2a. Fairness rules
 
 These exist because the game broke each of them at some point, and each break made the
