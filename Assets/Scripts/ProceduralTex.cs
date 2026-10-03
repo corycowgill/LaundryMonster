@@ -49,7 +49,7 @@ namespace LaundryMonster
                 // At 0.26 against a 0.59 tile it was the strongest edge on screen, and
                 // the floor read as a grid the player had to look past.
                 if (cx < 2 || cy < 2)
-                    return new Color(0.68f, 0.64f, 0.59f);
+                    return new Color(0.58f, 0.53f, 0.47f);
 
                 // Alternating tiles, each with its own faint tint so the floor is not flat.
                 bool alt = ((tileX + tileY) & 1) == 0;

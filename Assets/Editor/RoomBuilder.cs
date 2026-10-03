@@ -50,8 +50,8 @@ public static class RoomBuilder
         // ---- palette ----
         // Warm sand rather than cold purple-grey: the floor is most of the screen and
         // it was setting the temperature of the whole room against the cream walls.
-        var floorMat   = Mat(new Color(0.78f, 0.73f, 0.66f), 0.18f);
-        var wallMat    = Mat(new Color(0.84f, 0.82f, 0.76f), 0.08f, 0f, "wall_paint", new Vector2(5f, 1.2f));
+        var floorMat   = Mat(ChunkyArt.FloorIvory, 0.12f);
+        var wallMat    = Mat(ChunkyArt.WallCream, 0.06f, 0f, "wall_paint", new Vector2(5f, 1.2f));
         var trimMat    = Mat(new Color(0.42f, 0.41f, 0.40f), 0.25f);
         var washerMat  = Mat(new Color(0.86f, 0.89f, 0.95f), 0.55f, 0.25f, "metal_brushed", new Vector2(1.2f, 1f));
         var dryerMat   = Mat(new Color(0.86f, 0.68f, 0.44f), 0.55f, 0.25f, "metal_brushed", new Vector2(1.2f, 1f));
@@ -80,6 +80,14 @@ public static class RoomBuilder
         Box(root.transform, "Wall_Left",  new Vector3(-8.3f, 2.2f, 1f), new Vector3(0.4f, 4.4f, 13f), wallMat);
         Box(root.transform, "Wall_Right", new Vector3(8.3f, 2.2f, 1f),  new Vector3(0.4f, 4.4f, 13f), wallMat);
 
+        // A painted lower band, the way a laundry does it so scuffs do not show. It also
+        // separates the wall from the floor, which were two creams meeting with nothing
+        // between them and reading as one flat surface.
+        var bandMat = Mat(ChunkyArt.WallTeal, 0.10f);
+        Box(root.transform, "Band_Back",  new Vector3(0f, 0.62f, 7.36f),  new Vector3(17f, 1.24f, 0.08f), bandMat);
+        Box(root.transform, "Band_Left",  new Vector3(-8.06f, 0.62f, 1f), new Vector3(0.08f, 1.24f, 13f), bandMat);
+        Box(root.transform, "Band_Right", new Vector3(8.06f, 0.62f, 1f),  new Vector3(0.08f, 1.24f, 13f), bandMat);
+
         // Skirting, so the wall/floor join reads as a room rather than a box.
         Box(root.transform, "Skirt_Back",  new Vector3(0f, 0.09f, 7.36f),  new Vector3(17f, 0.18f, 0.12f), trimMat);
         Box(root.transform, "Skirt_Left",  new Vector3(-8.06f, 0.09f, 1f), new Vector3(0.12f, 0.18f, 13f), trimMat);
@@ -92,19 +100,22 @@ public static class RoomBuilder
         MakeMachine(root.transform, "Dryer_A",  new Vector3(2.5f, 0f, 5.5f),  dryerMat,  glassMat, panelMat, chromeMat, LaundryMachine.Mode.Dryer);
         MakeMachine(root.transform, "Dryer_B",  new Vector3(5.0f, 0f, 5.5f),  dryerMat,  glassMat, panelMat, chromeMat, LaundryMachine.Mode.Dryer);
 
-        var table = MakeFoldTable(root.transform, new Vector3(4.5f, 0f, -2.5f), woodMat, chromeMat);
+        var shade = RoomArt.Mat(ChunkyArt.FloorIvory * 0.42f, 0.02f);
+        var table = RoomArtProps.FoldTable(root.transform, new Vector3(4.5f, 0f, -2.5f), shade);
         table.AddComponent<FoldTable>().InteractRadius = 2.3f;
         table.AddComponent<LaundryMonster.Highlighter>();
 
-        var closet = MakeCloset(root.transform, new Vector3(7.1f, 0f, 0.5f), closetMat, chromeMat);
+        var closet = RoomArtProps.Closet(root.transform, new Vector3(7.1f, 0f, 0.5f), shade);
         closet.AddComponent<Closet>().InteractRadius = 2.3f;
         closet.AddComponent<LaundryMonster.Highlighter>();
 
-        var chair = MakeChair(root.transform, new Vector3(0f, 0f, 0.5f), chairMat, woodMat);
+        // A sorting basket, not a chair. Mechanically this is where laundry gets dumped,
+        // and a kitchen chair in the middle of a laundry room read as a thing to sit on.
+        var chair = RoomArtProps.SortingBasket(root.transform, new Vector3(0f, 0f, 0.5f), shade);
         chair.AddComponent<Chair>().InteractRadius = 2.1f;
         chair.AddComponent<LaundryMonster.Highlighter>();
 
-        var drawer = MakeSockDrawer(root.transform, new Vector3(-6.0f, 0f, -2.2f), sockMat, chromeMat);
+        var drawer = RoomArtProps.SockDrawer(root.transform, new Vector3(-6.0f, 0f, -2.2f), shade);
         drawer.AddComponent<SockStation>().InteractRadius = 2.2f;
         drawer.AddComponent<LaundryMonster.Highlighter>();
 
@@ -157,6 +168,8 @@ public static class RoomBuilder
 
         // ---- set dressing ----
         BuildDecor(root.transform);
+        BuildWasherCorner(root.transform);
+        BuildClusters(root.transform);
 
         // ---- lighting ----
         var lighting = new GameObject("Lighting");
@@ -229,20 +242,8 @@ public static class RoomBuilder
             new Color(0.35f, 0.72f, 0.45f), new Color(0.85f, 0.30f, 0.45f),
             new Color(0.95f, 0.80f, 0.25f),
         };
-        var tops = new[] { -3.0f, -0.5f, 2.5f, 5.0f };
-        for (int i = 0; i < tops.Length; i++)
-        {
-            float x = tops[i] + (i % 2 == 0 ? 0.42f : -0.40f);
-            var col = bottleCols[i % bottleCols.Length];
-            Child(d, "Detergent", PrimitiveType.Cylinder,
-                  new Vector3(x, 1.44f, 5.55f), new Vector3(0.17f, 0.16f, 0.17f), Mat(col, 0.5f));
-            Child(d, "Cap", PrimitiveType.Cylinder,
-                  new Vector3(x, 1.63f, 5.55f), new Vector3(0.10f, 0.04f, 0.10f), white);
-            if (i % 2 == 0)
-                Child(d, "SoapBox", PrimitiveType.Cube,
-                      new Vector3(tops[i] - 0.45f, 1.42f, 5.5f), new Vector3(0.3f, 0.36f, 0.22f),
-                      Mat(bottleCols[(i + 2) % bottleCols.Length], 0.2f));
-        }
+        // The machines now have control panels of their own at this height, so the old
+        // cylinders-on-the-lid went through them. Supplies live on the shelf instead.
 
         // --- wall shelf above the machines, with more supplies ---
         Child(d, "Shelf", PrimitiveType.Cube, new Vector3(0.5f, 2.15f, 7.25f),
@@ -299,65 +300,425 @@ public static class RoomBuilder
         Child(d, "DrainRim", PrimitiveType.Cylinder, new Vector3(2.0f, 0.008f, 1.2f),
               new Vector3(0.68f, 0.008f, 0.68f), steel);
 
-        // --- spare baskets stacked in the corner ---
-        for (int i = 0; i < 2; i++)
-        {
-            var b = AddModel(d, "SpareBasket", "basket",
-                             new Vector3(7.3f, i * 0.55f, -3.6f),
-                             Quaternion.Euler(0f, ModelYaw + i * 40f, 0f), Color.white, 0.12f);
-            if (b == null)
-                Child(d, "SpareBasket", PrimitiveType.Cube,
-                      new Vector3(7.3f, 0.4f + i * 0.55f, -3.6f),
-                      new Vector3(1.0f, 0.7f, 1.0f), plastic);
-        }
+        // The photoreal wicker baskets are gone: they were the loudest clash in the
+        // room, a scanned object standing next to hand-built ones. Chunky stand-ins live
+        // in BuildClusters instead.
 
         // --- an ironing board nobody ever puts away ---
-        var board = Child(d, "IroningBoard", PrimitiveType.Cube, new Vector3(-7.3f, 0.85f, -0.4f),
-                          new Vector3(0.62f, 0.08f, 2.3f), white);
-        board.transform.localRotation = Quaternion.Euler(0f, 0f, 6f);
-        Child(d, "BoardLeg", PrimitiveType.Cylinder, new Vector3(-7.3f, 0.42f, 0.45f),
-              new Vector3(0.07f, 0.42f, 0.07f), steel);
-        Child(d, "BoardLeg", PrimitiveType.Cylinder, new Vector3(-7.3f, 0.42f, -1.2f),
-              new Vector3(0.07f, 0.42f, 0.07f), steel);
+        var board = RoomArt.Box(d, "IroningBoard", new Vector3(0.68f, 0.12f, 2.3f), 0.06f,
+                                new Vector3(-7.3f, 0.86f, -0.4f), RoomArt.Mat(ChunkyArt.Cream, 0.2f),
+                                new Vector3(0f, 0f, 6f));
+        foreach (var bz in new[] { 0.45f, -1.2f })
+            RoomArt.Box(d, "BoardLeg", new Vector3(0.11f, 0.8f, 0.11f), 0.04f,
+                        new Vector3(-7.3f, 0.42f, bz), RoomArt.Mat(ChunkyArt.Chrome, 0.7f, 0.5f));
 
-        // --- a few stray socks on the floor, which is the whole premise ---
+        // Stray socks are now RoomArtProps.SockTrail: five oversized ones in a line
+        // leading to the Monster, rather than four real-sized ones that were specks.
+
+        // --- a sign on the back wall ---
+        // Taller than it was: it now has a caption and a very large zero to hold.
+        Child(d, "SignBoard", PrimitiveType.Cube, new Vector3(-5.0f, 2.26f, 7.33f),
+              new Vector3(2.4f, 0.82f, 0.07f), Mat(new Color(0.22f, 0.38f, 0.55f), 0.3f));
+        Child(d, "SignStripe", PrimitiveType.Cube, new Vector3(-5.0f, 1.88f, 7.30f),
+              new Vector3(2.0f, 0.05f, 0.03f), white);
+        Child(d, "SignStripe2", PrimitiveType.Cube, new Vector3(-5.0f, 2.63f, 7.30f),
+              new Vector3(2.0f, 0.05f, 0.03f), white);
+    }
+
+
+
+    /// <summary>
+    /// One washer corner, dressed.
+    ///
+    /// Built first and on its own, because a style has to pass the recognition test at
+    /// the real gameplay zoom before it is worth applying to the whole room: can you
+    /// tell what each of these is without a label, from where the camera actually sits?
+    ///
+    /// The cluster sits in the pocket between the first washer and the back-left wall,
+    /// which is outside every highlight pad - the nearest, the washer's own, reaches
+    /// z 6.14 at this x.
+    /// </summary>
+    static void BuildWasherCorner(Transform root)
+    {
+        var corner = new GameObject("WasherCorner");
+        corner.transform.SetParent(root, false);
+        var c = corner.transform;
+
+        // Contact shadows are the difference between a prop on the floor and a prop
+        // hovering over it. Floor ivory, knocked well down.
+        var shade = RoomArt.Mat(ChunkyArt.FloorIvory * 0.42f, 0.02f);
+
+        // On the LEFT wall, not the back one. The camera sees the back wall only up to
+        // about y 1.85, and the machines stand in front of most of that - a shelf behind
+        // them was a shelf nobody would ever see. The side walls are seen obliquely and
+        // have far more visible area.
+        var shelf = RoomArt.DetergentShelf(c, new Vector3(-7.75f, 1.35f, 5.4f), shade);
+        shelf.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
+        RoomArt.Spill(c, new Vector3(-4.4f, 0f, 6.5f), 0.5f, new Color(0.74f, 0.86f, 0.92f));
+        RoomArt.Basket(c, new Vector3(-5.3f, 0f, 6.6f), -22f, ChunkyArt.Lavender, 1, true, shade);
+        RoomArt.Pile(c, new Vector3(-6.9f, 0f, 6.5f), 1.0f, 3, shade);
+
+        foreach (var t in corner.GetComponentsInChildren<Transform>(true))
+            t.gameObject.isStatic = true;
+    }
+
+
+    /// <summary>
+    /// The rest of the clutter, in clusters rather than scattered.
+    ///
+    /// The previous attempt was a hundred small objects spread evenly over the floor,
+    /// which from the gameplay camera is visual noise - none of it was large enough to
+    /// identify and all of it competed with the laundry the player is tracking. These
+    /// are five or six readable scenes instead, each one pushed against a wall or tucked
+    /// beside a station, with the middle of the floor left clear to walk through.
+    /// </summary>
+    static void BuildClusters(Transform root)
+    {
+        var cl = new GameObject("Clusters");
+        cl.transform.SetParent(root, false);
+        var c = cl.transform;
+        var shade = RoomArt.Mat(ChunkyArt.FloorIvory * 0.42f, 0.02f);
+
+        // The dryer end: fuzz, and a bin that has given up. Clear of the dryer pads,
+        // which reach x 6.45 at this z.
+        RoomArtProps.LintCorner(c, new Vector3(6.9f, 0f, 6.3f), shade);
+
+        // Lost and found, down the right-hand wall between the dryers and the closet.
+        RoomArtProps.LostAndFound(c, new Vector3(7.3f, 0f, 3.2f), shade);
+
+        // A trail of oversized socks, leading out of the room toward the Monster. The
+        // socks are deliberately much bigger than real ones - at this zoom a real-sized
+        // sock is a speck, and the trail has to read as a trail.
+        RoomArtProps.SockTrail(c, new Vector3(-1.6f, 0f, 1.2f), new Vector3(-5.2f, 0f, 3.9f), 5, 2);
+
+        // Another laundry heap against the left wall, past the drawer.
+        RoomArt.Pile(c, new Vector3(-7.1f, 0f, 0.9f), 1.1f, 5, shade);
+        RoomArt.Basket(c, new Vector3(-7.2f, 0f, 2.6f), 28f, ChunkyArt.Mint, 4, true, shade);
+
+        // And one lint ball, in the corner, watching.
+        RoomArtProps.LintBall(c, new Vector3(-7.5f, 0f, -3.1f), 0.5f, true);
+
+        // The joke everyone will see: enormous underwear on the line down the left wall.
+        RoomArtProps.GiantUnderwear(c, new Vector3(-7.88f, 2.18f, 4.6f), 0f);
+
+        foreach (var t in cl.GetComponentsInChildren<Transform>(true))
+            t.gameObject.isStatic = true;
+    }
+
+
+    /// <summary>
+    /// The mess.
+    ///
+    /// BuildDecor makes the room read as a laundry room; this makes it read as one
+    /// somebody has been losing a fight with. Dust under everything, change on the floor,
+    /// a puddle nobody mopped, a plant nobody watered, and a sign counting days since the
+    /// last incident that has clearly never got past zero.
+    ///
+    /// Two rules, both of which the earlier readability pass earned and this must not
+    /// spend:
+    ///
+    ///   Nothing within 1.6m of a station. That is the radius of the highlight pad, and
+    ///   the pads are how the player knows where to take what they are carrying. Clutter
+    ///   sitting in one is clutter sitting on the game's clearest signal.
+    ///
+    ///   Nothing saturated. The stations own the strong blues, oranges and greens; the
+    ///   mess is beiges, greys and dusty pastels. A funny room that competes with its own
+    ///   interface is not funny for long.
+    ///
+    /// Everything here is flat on the floor or pushed against a wall, so the player never
+    /// appears to walk through a solid object.
+    /// </summary>
+    static void BuildMess(Transform root)
+    {
+        var mess = new GameObject("Mess");
+        mess.transform.SetParent(root, false);
+        var d = mess.transform;
+
+        // The floor is base 0.78 multiplied by a ~0.76 tile texture, so it renders
+        // around 0.59. Anything untextured sitting on it renders at its full colour, so
+        // these are picked against 0.59 rather than against the number in the material.
+        var lint    = Mat(new Color(0.63f, 0.60f, 0.55f), 0.05f);
+        var lintDim = Mat(new Color(0.56f, 0.53f, 0.49f), 0.05f);
+        var grime   = Mat(new Color(0.49f, 0.46f, 0.42f), 0.10f);
+        var suds    = Mat(new Color(0.60f, 0.64f, 0.66f), 0.35f);
+        var copper  = Mat(new Color(0.78f, 0.56f, 0.32f), 0.75f, 0.85f);
+        var silver  = Mat(new Color(0.80f, 0.82f, 0.85f), 0.80f, 0.85f);
+        var card    = Mat(new Color(0.72f, 0.60f, 0.44f), 0.10f);
+        var paper   = Mat(new Color(0.95f, 0.93f, 0.86f), 0.05f);
+        var steel   = Mat(new Color(0.72f, 0.74f, 0.78f), 0.80f, 0.85f);
+        var dark    = Mat(new Color(0.20f, 0.21f, 0.24f), 0.35f);
+        var hazard  = Mat(new Color(0.93f, 0.76f, 0.18f), 0.30f);
+        var deadLeaf = Mat(new Color(0.55f, 0.48f, 0.26f), 0.10f);
+        var liveLeaf = Mat(new Color(0.36f, 0.52f, 0.33f), 0.15f);
+
+        // A flat mark on the floor. Opaque and barely off the floor's own colour, so it
+        // reads as grime rather than as a thing you could pick up.
+        GameObject Stain(string name, Vector3 at, float rx, float rz, float yaw, Material m)
+        {
+            var go = Child(d, name, PrimitiveType.Cylinder,
+                           new Vector3(at.x, 0.011f, at.z), new Vector3(rx, 0.006f, rz), m);
+            go.transform.localRotation = Quaternion.Euler(0f, yaw, 0f);
+            return go;
+        }
+
+        // A clump of fluff: three squashed spheres, which is enough to stop it reading
+        // as a ball and start it reading as something swept into a corner.
+        void Fluff(Vector3 at, float size, Material m)
+        {
+            Child(d, "Lint", PrimitiveType.Sphere, new Vector3(at.x, size * 0.32f, at.z),
+                  new Vector3(size, size * 0.6f, size * 0.85f), m);
+            Child(d, "Lint", PrimitiveType.Sphere,
+                  new Vector3(at.x + size * 0.42f, size * 0.24f, at.z - size * 0.22f),
+                  new Vector3(size * 0.7f, size * 0.44f, size * 0.62f), m);
+            Child(d, "Lint", PrimitiveType.Sphere,
+                  new Vector3(at.x - size * 0.34f, size * 0.22f, at.z + size * 0.28f),
+                  new Vector3(size * 0.6f, size * 0.4f, size * 0.55f), m);
+        }
+
+        void Coin(Vector3 at, Material m)
+        {
+            Child(d, "Coin", PrimitiveType.Cylinder, new Vector3(at.x, 0.015f, at.z),
+                  new Vector3(0.11f, 0.008f, 0.11f), m);
+        }
+
+        void Peg(Vector3 at, float yaw, Color c)
+        {
+            var p = Child(d, "Peg", PrimitiveType.Cube, new Vector3(at.x, 0.03f, at.z),
+                          new Vector3(0.07f, 0.05f, 0.21f), Mat(c, 0.25f));
+            p.transform.localRotation = Quaternion.Euler(0f, yaw, 0f);
+        }
+
+        // ---------- the floor is not clean ----------
+
+        // Somebody's detergent went over by the washers and was left to dry.
+        Stain("SoapPuddle", new Vector3(-1.75f, 0f, 4.2f), 0.85f, 0.6f, 18f, suds);
+        Stain("SoapEdge", new Vector3(-1.2f, 0f, 3.85f), 0.42f, 0.3f, -30f, suds);
+        var tipped = Child(d, "TippedBottle", PrimitiveType.Cylinder,
+                           new Vector3(-2.35f, 0.17f, 4.5f), new Vector3(0.18f, 0.22f, 0.18f),
+                           Mat(new Color(0.42f, 0.60f, 0.80f), 0.5f));
+        tipped.transform.localRotation = Quaternion.Euler(90f, 24f, 0f);
+        Child(d, "TippedCap", PrimitiveType.Cylinder, new Vector3(-2.0f, 0.05f, 4.78f),
+              new Vector3(0.11f, 0.04f, 0.11f), Mat(new Color(0.95f, 0.95f, 0.92f), 0.4f));
+
+        // Traffic. Where everyone walks, the floor is darker.
+        Stain("Scuff", new Vector3(0.9f, 0f, 2.6f), 1.1f, 0.75f, 12f, grime);
+        Stain("Scuff", new Vector3(3.3f, 0f, 0.4f), 0.9f, 0.62f, 40f, grime);
+        Stain("DrainRing", new Vector3(2.0f, 0f, 1.2f), 0.78f, 0.78f, 0f, grime);
+
+        // ---------- dust, in every place a broom does not reach ----------
+        // Against the wall behind the machines, where a broom genuinely cannot reach,
+        // and in the corners. Not scattered over the floor the player works on.
+        Fluff(new Vector3(-4.3f, 0f, 6.3f), 0.26f, lint);
+        Fluff(new Vector3(1.05f, 0f, 6.35f), 0.23f, lintDim);
+        Fluff(new Vector3(3.8f, 0f, 6.3f), 0.20f, lintDim);
+        Fluff(new Vector3(-7.5f, 0f, 6.9f), 0.34f, lint);
+        Fluff(new Vector3(7.5f, 0f, 6.8f), 0.30f, lintDim);
+        Fluff(new Vector3(-7.4f, 0f, -2.9f), 0.28f, lint);
+        Fluff(new Vector3(6.9f, 0f, 5.2f), 0.24f, lintDim);
+
+        // ---------- the money that lives under the machines ----------
+        Coin(new Vector3(-2.55f, 0f, 5.95f), copper);
+        Coin(new Vector3(0.2f, 0f, 6.1f), silver);
+        Coin(new Vector3(2.9f, 0f, 5.85f), copper);
+        Coin(new Vector3(4.15f, 0f, 3.4f), silver);
+        Coin(new Vector3(-3.4f, 0f, 2.9f), copper);
+        Coin(new Vector3(1.6f, 0f, -1.5f), silver);
+        Coin(new Vector3(-5.2f, 0f, 0.6f), copper);
+
+        // ---------- pegs, which escape ----------
+        Peg(new Vector3(-0.8f, 0f, 0.9f), 22f, new Color(0.85f, 0.55f, 0.35f));
+        Peg(new Vector3(2.4f, 0f, 2.1f), -48f, new Color(0.55f, 0.70f, 0.85f));
+        Peg(new Vector3(-3.1f, 0f, -1.2f), 71f, new Color(0.80f, 0.78f, 0.45f));
+        Peg(new Vector3(5.3f, 0f, 1.6f), -15f, new Color(0.70f, 0.60f, 0.80f));
+        Peg(new Vector3(-6.6f, 0f, 3.3f), 40f, new Color(0.85f, 0.55f, 0.35f));
+
+        // ---------- a mop and bucket, retired mid-job ----------
+        Child(d, "Bucket", PrimitiveType.Cylinder, new Vector3(-7.35f, 0.26f, -2.95f),
+              new Vector3(0.62f, 0.26f, 0.62f), Mat(new Color(0.55f, 0.62f, 0.58f), 0.3f));
+        Child(d, "BucketWater", PrimitiveType.Cylinder, new Vector3(-7.35f, 0.47f, -2.95f),
+              new Vector3(0.54f, 0.02f, 0.54f), Mat(new Color(0.58f, 0.60f, 0.52f), 0.6f));
+        var mop = Child(d, "MopHandle", PrimitiveType.Cylinder, new Vector3(-7.78f, 0.95f, -2.2f),
+                        new Vector3(0.05f, 0.95f, 0.05f), Mat(new Color(0.70f, 0.60f, 0.44f), 0.2f));
+        mop.transform.localRotation = Quaternion.Euler(9f, 0f, 5f);
+        Child(d, "MopHead", PrimitiveType.Sphere, new Vector3(-7.9f, 0.16f, -2.5f),
+              new Vector3(0.30f, 0.20f, 0.34f), Mat(new Color(0.66f, 0.64f, 0.58f), 0.1f));
+
+        // ---------- a wet floor sign, placed hours after the wetness ----------
+        Child(d, "ConeBase", PrimitiveType.Cylinder, new Vector3(3.0f, 0.06f, 1.95f),
+              new Vector3(0.52f, 0.06f, 0.52f), hazard);
+        Child(d, "ConeMid", PrimitiveType.Cylinder, new Vector3(3.0f, 0.26f, 1.95f),
+              new Vector3(0.34f, 0.20f, 0.34f), hazard);
+        Child(d, "ConeTop", PrimitiveType.Cylinder, new Vector3(3.0f, 0.52f, 1.95f),
+              new Vector3(0.17f, 0.14f, 0.17f), hazard);
+        Child(d, "ConeBand", PrimitiveType.Cylinder, new Vector3(3.0f, 0.34f, 1.95f),
+              new Vector3(0.36f, 0.05f, 0.36f), Mat(new Color(0.95f, 0.95f, 0.93f), 0.3f));
+
+        // ---------- a plant that is mostly a memory ----------
+        Child(d, "PotRim", PrimitiveType.Cylinder, new Vector3(-7.4f, 0.34f, 5.9f),
+              new Vector3(0.58f, 0.34f, 0.58f), Mat(new Color(0.74f, 0.52f, 0.42f), 0.15f));
+        Child(d, "PotSoil", PrimitiveType.Cylinder, new Vector3(-7.4f, 0.66f, 5.9f),
+              new Vector3(0.50f, 0.03f, 0.50f), Mat(new Color(0.30f, 0.25f, 0.21f), 0.05f));
+        var stem = Child(d, "Stem", PrimitiveType.Cylinder, new Vector3(-7.4f, 0.98f, 5.9f),
+                         new Vector3(0.05f, 0.34f, 0.05f), deadLeaf);
+        stem.transform.localRotation = Quaternion.Euler(0f, 0f, 9f);
+        // One leaf still going, three that gave up.
+        Child(d, "Leaf", PrimitiveType.Sphere, new Vector3(-7.18f, 1.22f, 5.98f),
+              new Vector3(0.30f, 0.05f, 0.16f), liveLeaf);
+        Child(d, "Leaf", PrimitiveType.Sphere, new Vector3(-7.6f, 1.02f, 5.78f),
+              new Vector3(0.26f, 0.04f, 0.14f), deadLeaf)
+            .transform.localRotation = Quaternion.Euler(0f, 40f, -34f);
+        Child(d, "Leaf", PrimitiveType.Sphere, new Vector3(-7.26f, 0.88f, 5.72f),
+              new Vector3(0.24f, 0.04f, 0.13f), deadLeaf)
+            .transform.localRotation = Quaternion.Euler(0f, -25f, -48f);
+        Child(d, "FallenLeaf", PrimitiveType.Sphere, new Vector3(-6.9f, 0.02f, 5.5f),
+              new Vector3(0.22f, 0.02f, 0.12f), deadLeaf);
+
+        // ---------- lost and found, which is mostly lost ----------
+        Child(d, "LostBox", PrimitiveType.Cube, new Vector3(7.25f, 0.33f, 4.2f),
+              new Vector3(1.2f, 0.66f, 0.95f), card);
+        Child(d, "LostBoxLip", PrimitiveType.Cube, new Vector3(7.25f, 0.68f, 4.2f),
+              new Vector3(1.27f, 0.06f, 1.02f), Mat(new Color(0.64f, 0.52f, 0.38f), 0.1f));
+
         var sockMesh = LoadModelMesh("Assets/Models/g_socks/g_socks.fbx");
-        var strayCols = new[]
+        var spill = new[]
         {
-            new Color(0.85f, 0.35f, 0.35f), new Color(0.35f, 0.5f, 0.8f),
-            new Color(0.95f, 0.85f, 0.4f), new Color(0.4f, 0.7f, 0.5f),
+            (new Vector3(7.15f, 0.74f, 4.0f), new Color(0.80f, 0.42f, 0.42f), 14f),
+            (new Vector3(7.4f, 0.78f, 4.4f), new Color(0.45f, 0.55f, 0.78f), -38f),
+            (new Vector3(7.0f, 0.72f, 4.45f), new Color(0.86f, 0.80f, 0.45f), 62f),
+            (new Vector3(6.7f, 0.02f, 3.6f), new Color(0.50f, 0.68f, 0.52f), -12f),
         };
-        var strayAt = new[]
-        {
-            new Vector3(-1.9f, 0.02f, -3.4f), new Vector3(5.6f, 0.02f, 2.1f),
-            new Vector3(-4.6f, 0.02f, 0.2f),  new Vector3(1.2f, 0.02f, 6.4f),
-        };
-        for (int i = 0; i < strayAt.Length; i++)
+        foreach (var (at, col, yaw) in spill)
         {
             GameObject so;
             if (sockMesh != null)
             {
-                so = new GameObject("StraySock");
+                so = new GameObject("LostSock");
                 so.transform.SetParent(d, false);
                 so.AddComponent<MeshFilter>().sharedMesh = sockMesh;
-                so.AddComponent<MeshRenderer>().sharedMaterial = Mat(strayCols[i], 0.2f);
+                so.AddComponent<MeshRenderer>().sharedMaterial = Mat(col, 0.2f);
             }
             else
             {
-                so = Child(d, "StraySock", PrimitiveType.Cube, Vector3.zero,
-                           new Vector3(0.22f, 0.08f, 0.3f), Mat(strayCols[i], 0.2f));
+                so = Child(d, "LostSock", PrimitiveType.Cube, Vector3.zero,
+                           new Vector3(0.22f, 0.08f, 0.3f), Mat(col, 0.2f));
             }
-            so.transform.position = strayAt[i];
-            so.transform.localRotation = Quaternion.Euler(0f, i * 57f, 0f);
+            so.transform.position = at;
+            so.transform.localRotation = Quaternion.Euler(0f, yaw, 0f);
         }
 
-        // --- a sign on the back wall ---
-        Child(d, "SignBoard", PrimitiveType.Cube, new Vector3(-5.0f, 2.3f, 7.33f),
-              new Vector3(2.4f, 0.62f, 0.07f), Mat(new Color(0.22f, 0.38f, 0.55f), 0.3f));
-        Child(d, "SignStripe", PrimitiveType.Cube, new Vector3(-5.0f, 2.08f, 7.30f),
-              new Vector3(2.0f, 0.07f, 0.03f), white);
-        Child(d, "SignStripe2", PrimitiveType.Cube, new Vector3(-5.0f, 2.52f, 7.30f),
-              new Vector3(2.0f, 0.07f, 0.03f), white);
+        // ---------- a clothesline down the left wall ----------
+        var line = Child(d, "Clothesline", PrimitiveType.Cylinder,
+                         new Vector3(-7.95f, 2.25f, 2.4f), new Vector3(0.025f, 2.4f, 0.025f), steel);
+        line.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+        foreach (var (z, col, drop) in new[]
+                 {
+                     (0.6f, new Color(0.82f, 0.56f, 0.52f), 0.55f),
+                     (2.3f, new Color(0.56f, 0.66f, 0.80f), 0.70f),
+                     (3.9f, new Color(0.86f, 0.84f, 0.74f), 0.48f),
+                 })
+        {
+            Child(d, "HungItem", PrimitiveType.Cube,
+                  new Vector3(-7.92f, 2.25f - drop * 0.5f, z),
+                  new Vector3(0.05f, drop, 0.52f), Mat(col, 0.15f));
+            Child(d, "LinePeg", PrimitiveType.Cube, new Vector3(-7.92f, 2.27f, z),
+                  new Vector3(0.06f, 0.14f, 0.07f), Mat(new Color(0.84f, 0.78f, 0.62f), 0.2f));
+        }
+
+        // ---------- a cobweb nobody is tall enough to care about ----------
+        var web = Mat(new Color(0.86f, 0.86f, 0.84f), 0.05f);
+        for (int i = 0; i < 3; i++)
+        {
+            var strand = Child(d, "Cobweb", PrimitiveType.Cylinder,
+                               new Vector3(-7.75f, 3.45f, 7.05f),
+                               new Vector3(0.012f, 0.62f, 0.012f), web);
+            strand.transform.localRotation = Quaternion.Euler(52f, 35f + i * 36f, 28f);
+        }
+
+        // ---------- a noticeboard of things nobody reads ----------
+        // x 5.55: right of the shelf's end at 4.75 and left of the clock at 6.6. At 3.4
+        // it was behind the shelf with the detergent bottles standing in front of it.
+        Child(d, "Corkboard", PrimitiveType.Cube, new Vector3(5.55f, 1.78f, 7.33f),
+              new Vector3(1.5f, 1.0f, 0.06f), Mat(new Color(0.72f, 0.58f, 0.38f), 0.08f));
+        Child(d, "CorkFrame", PrimitiveType.Cube, new Vector3(5.55f, 1.78f, 7.36f),
+              new Vector3(1.62f, 1.12f, 0.03f), Mat(new Color(0.48f, 0.38f, 0.26f), 0.1f));
+        var notes = new[]
+        {
+            (new Vector3(5.15f, 2.0f, 7.29f), 5f, 0.36f, 0.3f),
+            (new Vector3(5.72f, 2.03f, 7.29f), -8f, 0.3f, 0.26f),
+            (new Vector3(5.95f, 1.62f, 7.29f), 11f, 0.34f, 0.3f),
+            (new Vector3(5.25f, 1.55f, 7.29f), -4f, 0.3f, 0.24f),
+        };
+        foreach (var (at, roll, w, h) in notes)
+            Child(d, "Note", PrimitiveType.Cube, at, new Vector3(w, h, 0.02f), paper)
+                .transform.localRotation = Quaternion.Euler(0f, 0f, roll);
+
+        // ---------- a sock that has been on that wall for months ----------
+        if (sockMesh != null)
+        {
+            var stuck = new GameObject("StaticClingSock");
+            stuck.transform.SetParent(d, false);
+            stuck.AddComponent<MeshFilter>().sharedMesh = sockMesh;
+            stuck.AddComponent<MeshRenderer>().sharedMaterial =
+                Mat(new Color(0.86f, 0.50f, 0.58f), 0.2f);
+            stuck.transform.position = new Vector3(0.9f, 1.75f, 7.26f);
+            stuck.transform.localRotation = Quaternion.Euler(84f, 0f, 22f);
+        }
+
+        // ---------- a radio, permanently on one station ----------
+        Child(d, "Radio", PrimitiveType.Cube, new Vector3(4.7f, 2.33f, 7.25f),
+              new Vector3(0.62f, 0.3f, 0.3f), Mat(new Color(0.52f, 0.47f, 0.42f), 0.25f));
+        Child(d, "RadioGrille", PrimitiveType.Cube, new Vector3(4.56f, 2.33f, 7.10f),
+              new Vector3(0.26f, 0.2f, 0.02f), dark);
+        Child(d, "RadioDial", PrimitiveType.Cylinder, new Vector3(4.9f, 2.36f, 7.10f),
+              new Vector3(0.09f, 0.02f, 0.09f), silver)
+            .transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+        var ant = Child(d, "RadioAntenna", PrimitiveType.Cylinder,
+                        new Vector3(4.95f, 2.72f, 7.3f), new Vector3(0.016f, 0.38f, 0.016f), silver);
+        ant.transform.localRotation = Quaternion.Euler(0f, 0f, 22f);
+
+        // ---------- the sign, which has never got past zero ----------
+        var signFont = LoadFont("LilitaOne-Regular");
+        WallText(d, "DAYS SINCE INCIDENT", new Vector3(-5.0f, 2.47f, 7.26f), 0.045f,
+                 new Color(0.94f, 0.96f, 0.99f), signFont);
+        WallText(d, "0", new Vector3(-5.0f, 2.12f, 7.26f), 0.13f,
+                 new Color(0.98f, 0.82f, 0.25f), signFont);
+
+        // Static, so a hundred small props batch into a handful of draw calls instead of
+        // a hundred. None of it ever moves.
+        foreach (var t in mess.GetComponentsInChildren<Transform>(true))
+            t.gameObject.isStatic = true;
+    }
+
+    /// <summary>
+    /// Readable text on the back wall.
+    ///
+    /// Left unrotated: a TextMesh reads toward its own -Z, which is the direction the
+    /// back wall faces, so it already points at the player. Turning it to face them turns
+    /// it away, and the first version of this sign came out a mirror image.
+    /// </summary>
+    static GameObject WallText(Transform parent, string text, Vector3 pos, float size,
+                               Color color, Font font)
+    {
+        if (font == null) return null;
+
+        var go = new GameObject("Sign_" + text);
+        go.transform.SetParent(parent, false);
+        go.transform.position = pos;
+        // No rotation: a TextMesh already reads toward -Z, which is the way the back
+        // wall faces. Turning it round was what made the first sign a mirror image.
+        go.transform.localRotation = Quaternion.identity;
+
+        var tm = go.AddComponent<TextMesh>();
+        tm.text = text;
+        tm.font = font;
+        tm.fontSize = 80;
+        tm.characterSize = size;
+        tm.anchor = TextAnchor.MiddleCenter;
+        tm.alignment = TextAlignment.Center;
+        tm.color = color;
+
+        go.GetComponent<MeshRenderer>().sharedMaterial = font.material;
+        return go;
     }
 
 
@@ -497,15 +858,18 @@ public static class RoomBuilder
         go.transform.SetParent(parent, false);
         go.transform.position = pos;
 
-        // Generated model if we have one; the primitive build is the fallback.
+        // Built, not scanned.
+        //
+        // The generated washer and dryer meshes were photoreal objects sitting next to
+        // hand-made cubes, and the mismatch was most of why the room read as unrelated
+        // props on a floor rather than as a place. RoomArt builds both machines out of
+        // the same rounded box every other prop is made of, with the door and the knob
+        // exaggerated enough to be identified at the zoom the game is actually played at.
         bool washer = mode == LaundryMachine.Mode.Washer;
-        // Tinted toward the colour its badge uses. Both machines were off-white boxes
-        // with a stripe on top, which is only legible from directly overhead - and the
-        // camera is not directly overhead.
-        var model = AddModel(go.transform, "Model", washer ? "washer" : "dryer", Vector3.zero,
-                             Quaternion.Euler(0f, ModelYaw, 0f),
-                             washer ? new Color(0.80f, 0.88f, 1.00f)
-                                    : new Color(1.00f, 0.86f, 0.70f), 0.5f);
+        int index = name.EndsWith("_B") ? 1 : 0;
+        var built = RoomArt.Machine(go.transform, "Chunky", Vector3.zero, mode, index);
+        built.transform.localPosition = Vector3.zero;
+        GameObject model = built;
         if (model == null)
         {
             Child(go.transform, "Mesh", PrimitiveType.Cube,
@@ -537,22 +901,9 @@ public static class RoomBuilder
 
         }
 
-        // Colour-coded lid, so washers and dryers read instantly from above. This stays
-        // even with the model: it is the thing that tells the two machine types apart.
-        var lidColor = washer ? new Color(0.18f, 0.46f, 0.80f)
-                              : new Color(0.92f, 0.48f, 0.14f);
-        Child(go.transform, "Strip", PrimitiveType.Cube,
-              new Vector3(0f, model != null ? 1.33f : 1.21f, model != null ? 0f : 0.12f),
-              new Vector3(model != null ? 0.95f : 1.5f, 0.07f, model != null ? 0.98f : 1.1f),
-              Mat(lidColor, 0.4f));
-
-        // A band across the front in the same colour. The lid is the only marking the
-        // machine had, and from a 50-degree camera the lid is a sliver - this is the
-        // face the player actually sees while walking toward it.
-        Child(go.transform, "FrontBand", PrimitiveType.Cube,
-              new Vector3(0f, model != null ? 1.12f : 1.05f, model != null ? -0.62f : -0.70f),
-              new Vector3(model != null ? 0.92f : 1.45f, 0.14f, 0.06f),
-              Mat(lidColor, 0.3f));
+        // No colour-coded lid any more: the whole machine is the colour now. Turquoise
+        // and sky blue wash, coral and orange dry, which reads from anywhere in the room
+        // rather than only from directly overhead.
 
         var m = go.AddComponent<LaundryMachine>();
         m.MachineMode = mode;
