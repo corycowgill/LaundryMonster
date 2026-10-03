@@ -1,0 +1,21 @@
+# Render Blueprint for Laundry Monster.
+#
+# publish-deploy.sh copies this onto the `deploy` branch, because that is the branch
+# Render serves. In Render: New > Blueprint > pick this repo > branch `deploy`, and
+# the static site configures itself from here instead of by hand.
+#
+# There is no build command. Unity builds the game locally and the finished output is
+# committed to `deploy` already, so Render only has to serve files.
+#
+# No custom headers on purpose. Unity ships its payload pre-compressed and would
+# normally need Content-Encoding: gzip from the host, but the build sets
+# WebGL.decompressionFallback instead so it works on any static host with no
+# configuration at all. See DEPLOY.md if you ever want the faster header-based path.
+services:
+  - type: web
+    name: laundry-monster
+    runtime: static
+    branch: deploy
+    buildCommand: ""
+    staticPublishPath: .
+    pullRequestPreviewsEnabled: false
