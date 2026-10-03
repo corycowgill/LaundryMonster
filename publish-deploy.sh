@@ -45,6 +45,12 @@ cp -r "$BUILD/." "$WT/"
 # fail to load.
 printf '* -filter -diff -merge -text\n' > "$WT/.gitattributes"
 
+# Carry the Render blueprint across, so the branch Render reads can configure the
+# site itself instead of relying on settings typed into a dashboard.
+if [ -f "$REPO/render.yaml" ]; then
+  cp "$REPO/render.yaml" "$WT/render.yaml"
+fi
+
 git add -A
 if git diff --cached --quiet; then
   echo "Deploy branch already matches this build; nothing to push."

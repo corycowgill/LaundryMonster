@@ -10,7 +10,21 @@ The repo has two branches with different jobs:
 Keeping them apart means the source history is not polluted with an 18 MB binary
 blob on every build, and Render clones only what it needs to serve.
 
-## Render.com settings
+## First-time Render setup
+
+Two ways. The blueprint is the easy one.
+
+### A. Blueprint (one click)
+
+`render.yaml` is published onto the `deploy` branch with every build, so Render can
+configure the site itself:
+
+1. Render dashboard -> **New** -> **Blueprint**
+2. Pick the `corycowgill/LaundryMonster` repo
+3. Set the branch to **`deploy`**
+4. Apply
+
+### B. By hand
 
 Create a **Static Site** (not a Web Service - there is nothing to run server side):
 
@@ -22,8 +36,8 @@ Create a **Static Site** (not a Web Service - there is nothing to run server sid
 | Build Command | *(leave blank)* |
 | Publish Directory | **`.`** |
 
-That is the whole configuration. There is no build step, because the game is built
-locally by Unity and committed to `deploy` already.
+That is the whole configuration. There is no build step, because Unity builds the game
+locally and the output is committed to `deploy` already.
 
 ### Why no custom headers are needed
 
@@ -45,16 +59,33 @@ off in `Assets/Editor/Builder.cs`:
 
 ## Publishing a new build
 
-```bash
-# 1. Build WebGL from the Unity Editor:
-#    menu  Laundry Monster > Build WebGL
-#    (output lands in Builds/WebGL, which is gitignored on main)
+Pick whichever is in front of you. All three do the same thing.
 
-# 2. Push that output to the deploy branch:
+**From Unity (easiest):**
+
+> menu **Laundry Monster > Build and Deploy WebGL**
+
+Builds the player and pushes it to `deploy` in one click, after a confirmation prompt.
+**Laundry Monster > Deploy Last Build** publishes the existing build without rebuilding.
+
+**From PowerShell:**
+
+```powershell
+.\deploy.ps1
+```
+
+**From a shell:**
+
+```bash
 ./publish-deploy.sh
 ```
 
-Render auto-deploys on every push to `deploy`.
+Render redeploys automatically on every push to `deploy`, so there is nothing to click
+afterwards. The script is safe to re-run: it works in a throwaway git worktree, never
+touches your working tree, and stops early if the build is already published.
+
+Build first if you are using the script directly - Unity menu **Laundry Monster > Build
+WebGL** - since the scripts publish whatever is in `Builds/WebGL` and do not build.
 
 ## What the player loads
 
