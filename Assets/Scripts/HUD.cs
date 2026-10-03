@@ -23,6 +23,12 @@ namespace LaundryMonster
         Text _frontText, _frontTitle;
         Text _summaryText;
 
+        // Control names are read fresh each frame: a player who picks up a pad
+        // or puts down the phone should not be told to press a key they lack.
+        static string _act => GameInput.InteractGlyph;
+        static string _hold => GameInput.HoldGlyph;
+        static string _move => GameInput.MoveGlyph;
+
         Font _font;
         Sprite _white;
 
@@ -297,7 +303,7 @@ namespace LaundryMonster
             {
                 _frontTitle.text = "HALLUCINATED GAMES";
                 _frontTitle.color = new Color(0.85f, 0.88f, 1f);
-                _frontText.text = "\n\npresents\n\n\n\n\n\npress any key to skip";
+                _frontText.text = "\n\npresents\n\n\n\n\n\npress anything to skip";
                 return;
             }
 
@@ -307,8 +313,8 @@ namespace LaundryMonster
                 _frontTitle.color = new Color(1f, 0.86f, 0.35f);
                 _frontText.text =
                     "the laundry never ends\n\n\n" +
-                    "[ SPACE ]   start a new run\n" +
-                    "[ H ]       how to play\n\n\n" +
+                    "[ " + GameInput.ConfirmGlyph + " ]   start a new run\n" +
+                    "[ " + GameInput.HelpGlyph + " ]   how to play\n\n\n" +
                     "--------  BEST  --------\n" +
                     "score         " + HighScores.BestScore.ToString("0.#") + "\n" +
                     "day reached   " + HighScores.BestDay + "\n" +
@@ -321,18 +327,18 @@ namespace LaundryMonster
             _frontTitle.text = "HOW TO PLAY";
             _frontTitle.color = new Color(0.75f, 0.9f, 1f);
             _frontText.text =
-                "WASD or arrows to move.   E to interact.   Some things need E HELD.\n\n" +
+                _move + " to move.   " + _act + " to interact.   Some things need it HELD.\n\n" +
                 "THE LOOP\n" +
                 "  Pull dirty clothes off the MONSTER  ->  WASHER (blue lid)  ->  DRYER (orange lid)\n" +
-                "  ->  HOLD E at the FOLD TABLE  ->  put it away in the CLOSET. Only the closet scores.\n\n" +
+                "  ->  " + _hold.ToUpper() + " at the FOLD TABLE  ->  put it away in the CLOSET. Only the closet scores.\n\n" +
                 "THE WRINKLE CLOCK\n" +
                 "  The moment a dryer stops, its load starts wrinkling. Fold it in " + Tuning.WrinkleGrace + "s.\n" +
                 "  Wet laundry mildews in " + Tuning.MildewGrace + "s. You will hear it ticking.\n\n" +
                 "POCKETS\n" +
-                "  Pants always have them. HOLD E at a washer to check first, for " + Tuning.PocketCheckHold + "s.\n" +
+                "  Pants always have them. " + _hold.ToUpper() + " at a washer to check first, for " + Tuning.PocketCheckHold + "s.\n" +
                 "  Skip it and most loads are fine. The rest cost a wallet, a crayon, or your AirPods.\n\n" +
                 "LINT\n" +
-                "  Every dry cycle clogs the trap. HOLD E at a dryer to empty it.\n" +
+                "  Every dry cycle clogs the trap. " + _hold.ToUpper() + " at a dryer to empty it.\n" +
                 "  It never helps the load in front of you. At 8 it can catch fire. At 10 the run ends.\n\n" +
                 "SOCKS\n" +
                 "  A lone sock cannot be folded. Match pairs at the SOCK DRAWER.\n" +
@@ -341,7 +347,7 @@ namespace LaundryMonster
                 "  Dump laundry there when you are drowning. It wrinkles twice as fast there,\n" +
                 "  and when it overflows it feeds the Monster.\n\n" +
                 "THE MONSTER grows from all you fail to finish. Let it fill and the run is over.\n\n\n" +
-                "[ SPACE ] back";
+                "[ " + GameInput.ConfirmGlyph + " ] back";
         }
 
         void UpdateMachines()
@@ -392,7 +398,7 @@ namespace LaundryMonster
 
             string hint;
             if (_player.Carried.Count == 0)
-                hint = "WASD to move.  Grab laundry from the hamper on the left.";
+                hint = _move + " to move.  Grab laundry from the hamper on the left.";
             else
             {
                 var g = _player.Carried[0];
@@ -400,7 +406,7 @@ namespace LaundryMonster
                 {
                     case GarmentState.Dirty:
                     case GarmentState.Mildewed:
-                        hint = "Take it to a washer (blue lid).  Hold E there to check pockets first."; break;
+                        hint = "Take it to a washer (blue lid).  " + _hold + " there to check pockets first."; break;
                     case GarmentState.Wet:
                         hint = "Into a dryer (orange lid) before it mildews."; break;
                     case GarmentState.CleanDry:
@@ -479,7 +485,7 @@ namespace LaundryMonster
                 if (!string.IsNullOrEmpty(status)) line += "  [" + status + "]";
                 if (!string.IsNullOrEmpty(tap)) line += "\npress E to " + tap;
                 if (!string.IsNullOrEmpty(hold) && near.HoldSeconds(_player) > 0f)
-                    line += "\nhold E to " + hold;
+                    line += "\n" + _hold + " to " + hold;
                 _promptText.text = line;
             }
 

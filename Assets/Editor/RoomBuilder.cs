@@ -27,7 +27,7 @@ public static class RoomBuilder
 
         var existing = GameObject.Find(RootName);
         if (existing != null) Object.DestroyImmediate(existing);
-        foreach (var stale in new[] { "Player", "GameDirector", "HUD", "Lighting" })
+        foreach (var stale in new[] { "Player", "GameDirector", "HUD", "Lighting", "TouchControls" })
         {
             var go = GameObject.Find(stale);
             if (go != null) Object.DestroyImmediate(go);
@@ -128,6 +128,9 @@ public static class RoomBuilder
         BuildLighting(lighting.transform);
 
         // ---- director + HUD ----
+        var touchGo = new GameObject("TouchControls");
+        touchGo.AddComponent<TouchControls>();
+
         var dirGo = new GameObject("GameDirector");
         var dir = dirGo.AddComponent<GameDirector>();
         dir.Hamper = hamperComp;

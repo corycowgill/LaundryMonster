@@ -208,18 +208,18 @@ namespace LaundryMonster
 
             if (CurrentPhase == Phase.Playing) { TickDay(); return; }
 
-            var kb = Keyboard.current;
-            if (kb == null) return;
-
-            bool go = kb.spaceKey.wasPressedThisFrame || kb.enterKey.wasPressedThisFrame;
-            bool help = kb.hKey.wasPressedThisFrame;
-            bool back = kb.escapeKey.wasPressedThisFrame;
+            // Every scheme, not just the keyboard. This used to return early when
+            // Keyboard.current was null, which made the title screen a dead end on a
+            // phone or a pad-only machine: the game was running and unreachable.
+            bool go = GameInput.ConfirmPressed();
+            bool help = GameInput.HelpPressed();
+            bool back = GameInput.BackPressed();
 
             switch (CurrentPhase)
             {
                 case Phase.Intro:
-                    // Any key skips the intro.
-                    if (go || help || back || kb.anyKey.wasPressedThisFrame) CurrentPhase = Phase.Title;
+                    // Anything skips the intro.
+                    if (go || help || back || GameInput.AnyPressed()) CurrentPhase = Phase.Title;
                     break;
 
                 case Phase.Title:

@@ -60,21 +60,7 @@ namespace LaundryMonster
 
         void Move()
         {
-            Vector2 input = Vector2.zero;
-
-            var kb = Keyboard.current;
-            if (kb != null)
-            {
-                if (kb.aKey.isPressed || kb.leftArrowKey.isPressed) input.x -= 1f;
-                if (kb.dKey.isPressed || kb.rightArrowKey.isPressed) input.x += 1f;
-                if (kb.sKey.isPressed || kb.downArrowKey.isPressed) input.y -= 1f;
-                if (kb.wKey.isPressed || kb.upArrowKey.isPressed) input.y += 1f;
-            }
-
-            var gp = Gamepad.current;
-            if (gp != null) input += gp.leftStick.ReadValue();
-
-            if (input.sqrMagnitude > 1f) input.Normalize();
+            Vector2 input = GameInput.Move;
 
             var pos = transform.position;
             pos.x = Mathf.Clamp(pos.x + input.x * MoveSpeed * Time.deltaTime, RoomMin.x, RoomMax.x);
@@ -129,29 +115,11 @@ namespace LaundryMonster
             }
         }
 
-        bool InteractHeld()
-        {
-            var kb = Keyboard.current;
-            if (kb != null && kb.eKey.isPressed) return true;
-            var gp = Gamepad.current;
-            return gp != null && gp.buttonSouth.isPressed;
-        }
+        bool InteractHeld() => GameInput.InteractHeld();
 
-        bool InteractPressed()
-        {
-            var kb = Keyboard.current;
-            if (kb != null && kb.eKey.wasPressedThisFrame) return true;
-            var gp = Gamepad.current;
-            return gp != null && gp.buttonSouth.wasPressedThisFrame;
-        }
+        bool InteractPressed() => GameInput.InteractPressed();
 
-        bool InteractReleased()
-        {
-            var kb = Keyboard.current;
-            if (kb != null && kb.eKey.wasReleasedThisFrame) return true;
-            var gp = Gamepad.current;
-            return gp != null && gp.buttonSouth.wasReleasedThisFrame;
-        }
+        bool InteractReleased() => GameInput.InteractReleased();
 
         void HandleInteract()
         {

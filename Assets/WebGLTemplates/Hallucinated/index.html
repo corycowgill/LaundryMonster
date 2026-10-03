@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>{{{ PRODUCT_NAME }}}</title>
   <style>
     html, body {
@@ -10,6 +13,13 @@
       background: #0b0b0f; color: #e8e8ee;
       font-family: "Rajdhani", "Trebuchet MS", system-ui, sans-serif;
       overflow: hidden;
+      /* A game played with the thumbs must not also scroll, zoom or select the page,
+         and iOS will happily do all three on top of the canvas otherwise. */
+      touch-action: none;
+      overscroll-behavior: none;
+      -webkit-user-select: none; user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-text-size-adjust: 100%;
     }
     #wrap {
       position: fixed; inset: 0;
@@ -17,9 +27,11 @@
     }
     /* The canvas is hidden until BOTH the ident and the download are done, so the
        player never sees a half-loaded frame or a flash of black. */
+    /* Fill the viewport rather than sitting at a fixed design size. On a phone the old
+       fixed width letterboxed the game down to a stamp in the middle of the screen. */
     #unity-canvas {
-      width: {{{ WIDTH }}}px; height: {{{ HEIGHT }}}px;
-      max-width: 100vw; max-height: 100vh;
+      display: block;
+      width: 100%; height: 100%;
       background: {{{ BACKGROUND_COLOR }}};
       opacity: 0; transition: opacity .35s ease;
       touch-action: none;
@@ -75,6 +87,39 @@
     var params = new URLSearchParams(location.search);
 
     var canvas = document.querySelector("#unity-canvas");
+    var isTouch = ("ontouchstart" in window) || (navigator.maxTouchPoints || 0) > 0;
+
+    // Size the drawing buffer ourselves, with matchWebGLToCanvasSize off below, so Unity
+    // and this code are not both resizing it.
+    //
+    // The cap matters more than the fit. Phones report a devicePixelRatio of 3, and a
+    // 3x framebuffer on a phone GPU costs nine times the fill rate of a 1x one for a
+    // game that is mostly flat colour - it turned a smooth frame rate into a slideshow.
+    function fitCanvas() {
+      var dpr = Math.min(window.devicePixelRatio || 1, isTouch ? 1.5 : 2);
+      var w = Math.max(1, Math.round(window.innerWidth * dpr));
+      var h = Math.max(1, Math.round(window.innerHeight * dpr));
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w;
+        canvas.height = h;
+      }
+    }
+    fitCanvas();
+    window.addEventListener("resize", fitCanvas);
+    // iOS reports the old size during the rotation itself, so measure again after it.
+    window.addEventListener("orientationchange", function () {
+      setTimeout(fitCanvas, 120);
+      setTimeout(fitCanvas, 500);
+    });
+
+    // Stop the browser treating thumb input as page gestures (pull-to-refresh,
+    // double-tap zoom, long-press selection) while the game is being played.
+    ["touchstart", "touchmove", "touchend", "gesturestart"].forEach(function (ev) {
+      document.addEventListener(ev, function (e) {
+        if (e.target === canvas || e.touches) e.preventDefault();
+      }, { passive: false });
+    });
+
     var boot = document.querySelector("#boot");
     var bootFill = document.querySelector("#boot-fill");
     var bootMsg = document.querySelector("#boot-msg");
@@ -107,6 +152,8 @@
       frameworkUrl: "Build/{{{ FRAMEWORK_FILENAME }}}",
       codeUrl: "Build/{{{ CODE_FILENAME }}}",
       streamingAssetsUrl: "StreamingAssets",
+      // fitCanvas() above owns the drawing buffer size.
+      matchWebGLToCanvasSize: false,
       companyName: {{{ JSON.stringify(COMPANY_NAME) }}},
       productName: {{{ JSON.stringify(PRODUCT_NAME) }}},
       productVersion: {{{ JSON.stringify(PRODUCT_VERSION) }}},
@@ -127,8 +174,12 @@
       boot.classList.remove("show");
       canvas.classList.add("ready");
       canvas.focus();
-      hint.classList.add("show");
-      setTimeout(function () { hint.classList.remove("show"); }, 6000);
+      fitCanvas();
+      // The focus hint is about keyboards. On a touch device it is just noise.
+      if (!isTouch) {
+        hint.classList.add("show");
+        setTimeout(function () { hint.classList.remove("show"); }, 6000);
+      }
 
       window.__unity = results[1];
       window.__gameReady = true;
