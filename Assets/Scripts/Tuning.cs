@@ -133,6 +133,21 @@ namespace LaundryMonster
         public const float MonsterPerChairOverflowSecond = 0.5f;
         public const float MonsterMax = 30f;
 
+        // --- the clean streak ---
+        //
+        // A bonus for consecutive CLEAN deliveries, which is the hardest thing in the game
+        // to sustain - one wrinkled garment and it is back to zero. The bonus is kept out
+        // of the star calculation on purpose: stars measure the day's work, and a scoring
+        // bonus that moved the pass mark would make a good streak feel like a tax on the
+        // next day rather than a reward for this one.
+        public const int StreakMin = 3;              // before it pays anything
+        public const float StreakBonusEach = 0.25f;  // per delivery past the minimum
+        public const float StreakBonusCap = 3f;      // per day
+
+        // --- urgency readouts ---
+        /// <summary>Fraction of a decay clock left before a finished load reads as URGENT.</summary>
+        public const float UrgentFraction = 0.4f;
+
         // --- upgrades ---
         //
         // Each one is a trade. Walking is the real cost in this game, so the basket pays

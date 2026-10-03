@@ -44,6 +44,31 @@ turn into inside the drum: mildewed goes back in a washer, wrinkled back in a dr
 Machine state tracks *the cycle*, not the garments, precisely so that a load cannot
 become stuck by spoiling where it sits.
 
+## 2v. Urgency and reward
+
+**Machines say how long you have, not just "done".** A finished load is only good news
+until its clock runs out, so the badge counts down to the moment the OLDEST garment in
+the drum spoils — that is the one that decides when you are out of time. Five distinct
+states, each with its own words and colour, so none of them depends on colour alone:
+
+| state | reads |
+|---|---|
+| running | `18s` + progress ring |
+| ready | `18s LEFT`, green |
+| urgent | `3s LEFT`, pulsing red |
+| spoiled | `SPOILED`, red — still unloadable, still recoverable |
+| offline | `FIRE`, red |
+
+**The clean streak.** Consecutive clean deliveries pay a small bonus past
+`StreakMin`, capped at `StreakBonusCap` per day. One wrinkled delivery resets it.
+
+The bonus is deliberately kept **out of the star calculation**: stars measure the day's
+work against `Target`, and a bonus that moved the pass mark would turn a good streak
+into a tax on the next day. The run total counts it; the day's rating does not.
+
+**Delivery feedback** floats the points out of the closet where the work happened, rather
+than only incrementing a number in a corner the player is not looking at.
+
 ## 2w. Reading your own hands
 
 The carry chips on the action bar answer two questions, because knowing what you are

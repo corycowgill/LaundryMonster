@@ -46,7 +46,14 @@ namespace LaundryMonster
         Text _skipKey;
 
         // top right
-        Text _deliveredText, _scoreText;
+        Text _deliveredText, _scoreText, _streakText;
+        float _deliveredPop;
+
+        // the floating "+1" that rises out of the closet
+        RectTransform _pop;
+        Text _popText;
+        float _popAge = 99f;
+        Vector3 _popWorld;
 
         // bottom left
         Text _monsterLabel, _backlogText;
@@ -165,6 +172,7 @@ namespace LaundryMonster
             BuildMonster(_gameplay.transform);
             BuildActionBar(_gameplay.transform);
             BuildSnatchWarning(_gameplay.transform);
+            BuildDeliveryPop(_gameplay.transform);
             BuildFlash(_gameplay.transform);
 
             BuildFrontEnd(root);
@@ -313,6 +321,15 @@ namespace LaundryMonster
             _scoreText = Body(card, "", 26, TextAnchor.LowerRight);
             _scoreText.rectTransform.offsetMin = new Vector2(20f, 18f);
             _scoreText.rectTransform.offsetMax = new Vector2(-26f, -84f);
+
+            // The streak lives under the card: it is a reward, not a requirement, and it
+            // should not compete with the number that decides your stars.
+            _streakText = Body(parent, "", 24, TextAnchor.UpperRight, UiKit.Yellow);
+            UiKit.Place(_streakText.rectTransform, new Vector2(1f, 1f), new Vector2(1f, 1f),
+                        new Vector2(-40f, -172f), new Vector2(420f, 34f));
+            var so = _streakText.gameObject.AddComponent<Outline>();
+            so.effectColor = UiKit.NavyDeep;
+            so.effectDistance = new Vector2(2f, -2f);
         }
 
         // ---------- bottom left: the Monster ----------
@@ -430,6 +447,61 @@ namespace LaundryMonster
             }
         }
 
+        /// <summary>
+        /// The points that float up out of the closet when something is put away.
+        ///
+        /// It appears where the work happened rather than in the corner, because the
+        /// corner is where the score already lives and the player is not looking at it -
+        /// they are looking at the closet they just walked to.
+        /// </summary>
+        void BuildDeliveryPop(Transform parent)
+        {
+            var go = new GameObject("Pop");
+            go.transform.SetParent(parent, false);
+            _pop = go.AddComponent<RectTransform>();
+            UiKit.Place(_pop, new Vector2(0f, 0f), new Vector2(0.5f, 0.5f),
+                        Vector2.zero, new Vector2(320f, 70f));
+
+            _popText = Head(_pop, "", 46, TextAnchor.MiddleCenter, UiKit.Yellow);
+            var o = _popText.gameObject.AddComponent<Outline>();
+            o.effectColor = UiKit.NavyDeep;
+            o.effectDistance = new Vector2(3f, -3f);
+            _pop.gameObject.SetActive(false);
+        }
+
+        void UpdateDeliveryPop()
+        {
+            // A fresh delivery restarts the animation.
+            if (_dir.LastDeliveryTime > 0f && Time.time - _dir.LastDeliveryTime < 0.05f && _popAge > 0.1f)
+            {
+                _popAge = 0f;
+                _popWorld = _dir.LastDeliveryWorld;
+                _deliveredPop = 1f;
+
+                string txt = "+" + _dir.LastDeliveryPoints.ToString("0.#");
+                if (_dir.LastDeliveryBonus > 0f)
+                    txt += "  +" + _dir.LastDeliveryBonus.ToString("0.#") + " streak";
+                _popText.text = txt;
+                _popText.color = _dir.LastDeliveryBonus > 0f ? UiKit.Yellow : UiKit.Mint();
+            }
+
+            _popAge += Time.deltaTime;
+            bool show = _popAge < 1.2f;
+            SetActive(_pop.gameObject, show);
+            if (!show) return;
+
+            var cam = Camera.main;
+            if (cam == null) return;
+            var sp = cam.WorldToScreenPoint(_popWorld + new Vector3(0f, 1.1f + _popAge * 1.3f, 0f));
+            if (sp.z <= 0f) { SetActive(_pop.gameObject, false); return; }
+            _pop.position = sp;
+
+            float fade = 1f - Mathf.Clamp01(_popAge / 1.2f);
+            var c = _popText.color; c.a = fade; _popText.color = c;
+            float grow = 1f + Mathf.Clamp01(_popAge / 0.18f) * 0.25f;
+            _pop.localScale = Vector3.one * grow;
+        }
+
         void BuildFlash(Transform parent)
         {
             var go = new GameObject("Flash");
@@ -460,7 +532,7 @@ namespace LaundryMonster
 
                 var card = UiKit.Card(_gameplay.transform, "Badge", UiKit.Cream, accent, 6f);
                 UiKit.Place(card, new Vector2(0f, 0f), new Vector2(0.5f, 0.5f),
-                            Vector2.zero, new Vector2(186f, 78f));
+                            Vector2.zero, new Vector2(204f, 80f));
 
                 var label = Body(card, washer ? "WASH" : "DRY", 24, TextAnchor.UpperLeft, UiKit.Navy);
                 label.rectTransform.offsetMin = new Vector2(18f, 0f);
@@ -468,11 +540,15 @@ namespace LaundryMonster
 
                 var pill = UiKit.Block(card, "Pill", UiKit.Grey, UiKit.Card9);
                 UiKit.Place(pill.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 0f),
-                            new Vector2(16f, 12f), new Vector2(104f, 32f));
+                            new Vector2(16f, 12f), new Vector2(122f, 34f));
 
-                var status = Head(card, "", 32, TextAnchor.LowerLeft, UiKit.Navy);
-                status.rectTransform.offsetMin = new Vector2(20f, 8f);
-                status.rectTransform.offsetMax = new Vector2(-62f, -32f);
+                var status = Head(card, "", 30, TextAnchor.LowerLeft, UiKit.Navy);
+                status.rectTransform.offsetMin = new Vector2(22f, 10f);
+                status.rectTransform.offsetMax = new Vector2(-64f, -34f);
+                status.resizeTextForBestFit = true;
+                status.resizeTextMinSize = 16;
+                status.resizeTextMaxSize = 30;
+                status.horizontalOverflow = HorizontalWrapMode.Wrap;
 
                 var ringBack = UiKit.Block(card, "RingBack", UiKit.Grey, UiKit.Ring);
                 UiKit.Place(ringBack.rectTransform, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
@@ -972,6 +1048,7 @@ namespace LaundryMonster
             UpdateObjective();
             UpdateBadges();
             UpdateSnatchWarning();
+            UpdateDeliveryPop();
             UpdateActionBar();
             UpdateFlash();
             if (ph == Phase.DaySummary || ph == Phase.RunOver) UpdateSummary();
@@ -1020,11 +1097,28 @@ namespace LaundryMonster
         void UpdateDelivered()
         {
             _deliveredText.text = _dir.Delivered.ToString();
+
+            // A short punch on the counter, so a delivery registers even if you were
+            // looking at the closet rather than the corner.
+            _deliveredPop = Mathf.Max(0f, _deliveredPop - Time.deltaTime * 3.2f);
+            float punch = 1f + _deliveredPop * 0.35f;
+            _deliveredText.rectTransform.localScale = Vector3.one * punch;
+
             _scoreText.text = _dir.Score.ToString("0.#") + " / " + _dir.Target.ToString("0.#");
             bool met = _dir.Score >= _dir.Target;
             _scoreText.color = met ? UiKit.Green
                 : new Color(UiKit.Navy.r, UiKit.Navy.g, UiKit.Navy.b, 0.75f);
             _deliveredText.color = met ? UiKit.Green : UiKit.Navy;
+
+            // The streak only appears once it is actually paying, so it reads as a reward
+            // rather than another meter to manage.
+            if (_dir.CleanStreak >= Tuning.StreakMin)
+                _streakText.text = "CLEAN STREAK  x" + _dir.CleanStreak
+                                 + "   +" + _dir.BonusScore.ToString("0.#");
+            else if (_dir.BonusScore > 0f)
+                _streakText.text = "streak bonus  +" + _dir.BonusScore.ToString("0.#");
+            else
+                _streakText.text = "";
         }
 
         void UpdateMonster()
@@ -1161,13 +1255,41 @@ namespace LaundryMonster
                     b.RingFill.fillAmount = m.CycleFraction;
                     UiKit.SetCardColors(b.Root, UiKit.Cream, accent);
                 }
-                else if (m.HasFinishedLoad)
+                else if (m.HasFinishedLoad && m.HoldsSpoiled)
                 {
-                    b.Status.text = "READY";
-                    b.Pill.color = UiKit.Green;
+                    // Already spoiled: still unloadable, and still recoverable, but it is
+                    // no longer a countdown - it is a job.
+                    b.Status.text = "SPOILED";
+                    b.Pill.color = UiKit.Red;
                     SetActive(b.Pill.gameObject, true);
                     b.RingFill.fillAmount = 1f;
-                    UiKit.SetCardColors(b.Root, UiKit.Cream, UiKit.Green);
+                    UiKit.SetCardColors(b.Root, UiKit.Cream, UiKit.Red);
+                }
+                else if (m.HasFinishedLoad)
+                {
+                    // The useful number here is not "done", it is HOW LONG YOU HAVE. A
+                    // finished load is only good news until its clock runs out.
+                    float spoil = m.SecondsToSpoil;
+                    bool urgent = spoil >= 0f
+                                  && spoil <= Tuning.WrinkleGrace * Tuning.UrgentFraction;
+
+                    if (spoil >= 0f)
+                    {
+                        b.Status.text = Mathf.CeilToInt(spoil) + "s LEFT";
+                        b.RingFill.fillAmount = Mathf.Clamp01(spoil / Mathf.Max(1f, Tuning.WrinkleGrace));
+                    }
+                    else
+                    {
+                        b.Status.text = "READY";
+                        b.RingFill.fillAmount = 1f;
+                    }
+
+                    var tone = urgent ? Color.Lerp(UiKit.Red, UiKit.Yellow, UiKit.Pulse(10f))
+                                      : UiKit.Green;
+                    b.Pill.color = tone;
+                    SetActive(b.Pill.gameObject, true);
+                    b.RingFill.color = tone;
+                    UiKit.SetCardColors(b.Root, UiKit.Cream, tone);
                 }
                 else if (m.Contents.Count > 0)
                 {
@@ -1299,6 +1421,16 @@ namespace LaundryMonster
                  + "  ->  Monster +" + _dir.ClosingPenalty.ToString("0.#");
         }
 
+        /// <summary>Tells the player whether this day earned a pick, and why.</summary>
+        string UpgradeLine()
+        {
+            if (_dir.Stars <= 0)
+                return "\n\nno equipment this time - a day needs at least one star";
+            if (!_dir.Kit.AnyAvailable())
+                return "\n\nevery piece of equipment already acquired";
+            return "\n\nONE STAR EARNED - pick a piece of equipment next";
+        }
+
         void UpdateSummary()
         {
             bool over = _dir.CurrentPhase == Phase.RunOver;
@@ -1320,11 +1452,15 @@ namespace LaundryMonster
             else
             {
                 _summaryStats.text =
-                    "put away   " + _dir.Delivered + "\n" +
-                    "score      " + _dir.Score.ToString("0.#") + " / " + _dir.Target.ToString("0.#") + "\n" +
-                    "wrinkled   " + _dir.WrinkledCount + "\n" +
-                    "mildewed   " + _dir.MildewedCount + "\n" +
-                    "socks lost " + _dir.VoidedSocks + ClosingLine();
+                    "put away    " + _dir.Delivered + "\n" +
+                    "score       " + _dir.Score.ToString("0.#") + " / " + _dir.Target.ToString("0.#")
+                        + "   (stars are scored on this)\n" +
+                    (_dir.BonusScore > 0f
+                        ? "streak      +" + _dir.BonusScore.ToString("0.#")
+                          + "   best x" + _dir.BestStreakToday + "\n" : "") +
+                    "wrinkled    " + _dir.WrinkledCount + "\n" +
+                    "mildewed    " + _dir.MildewedCount + "\n" +
+                    "socks lost  " + _dir.VoidedSocks + ClosingLine() + UpgradeLine();
                 _summaryAction.text = GameInput.ConfirmGlyph + "   start day " + (_dir.Day + 1);
             }
         }

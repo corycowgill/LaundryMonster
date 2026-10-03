@@ -18,6 +18,38 @@ namespace LaundryMonster
         /// <summary>Seconds still to run on the current cycle.</summary>
         public float SecondsLeft => Mathf.Max(0f, _cycleLength - Timer);
 
+        /// <summary>
+        /// Seconds until the first thing in this drum spoils, or -1 if nothing is on a
+        /// clock. Measured from the OLDEST garment, because that is the one that decides
+        /// when you have run out of time.
+        /// </summary>
+        public float SecondsToSpoil
+        {
+            get
+            {
+                float worst = -1f;
+                foreach (var g in Contents)
+                {
+                    if (g == null || !g.IsDecaying) continue;
+                    float left = (g.DecayLimit - g.StateTimer) / Mathf.Max(0.01f, g.DecayMultiplier);
+                    if (worst < 0f || left < worst) worst = left;
+                }
+                return worst;
+            }
+        }
+
+        /// <summary>Anything in here already past saving into a worse state?</summary>
+        public bool HoldsSpoiled
+        {
+            get
+            {
+                foreach (var g in Contents)
+                    if (g != null && (g.State == GarmentState.Mildewed
+                                      || g.State == GarmentState.Wrinkled)) return true;
+                return false;
+            }
+        }
+
         /// <summary>0..1 through the current cycle, for the badge's progress ring.</summary>
         public float CycleFraction =>
             Running && _cycleLength > 0f ? Mathf.Clamp01(Timer / _cycleLength) : 0f;

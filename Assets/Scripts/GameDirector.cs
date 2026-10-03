@@ -32,7 +32,21 @@ namespace LaundryMonster
 
         public float DayTimer;
         public float DayLength;
+        /// <summary>Base delivery points. Stars are measured against this alone.</summary>
         public float Score;
+
+        /// <summary>Streak bonus, kept apart so it cannot move the day's pass mark.</summary>
+        public float BonusScore;
+
+        /// <summary>Consecutive clean deliveries. One wrinkled garment ends it.</summary>
+        public int CleanStreak;
+        public int BestStreakToday;
+
+        /// <summary>Set briefly when a delivery lands, for the HUD to react to.</summary>
+        public float LastDeliveryTime { get; private set; } = -99f;
+        public float LastDeliveryPoints { get; private set; }
+        public float LastDeliveryBonus { get; private set; }
+        public Vector3 LastDeliveryWorld { get; private set; }
         public int Delivered;
         public int WrinkledCount;
         public int MildewedCount;
@@ -189,6 +203,9 @@ namespace LaundryMonster
             DayTimer = 0f;
             DayLength = Tuning.DayLength(day);
             Score = 0f;
+            BonusScore = 0f;
+            CleanStreak = 0;
+            BestStreakToday = 0;
             Delivered = 0;
             WrinkledCount = 0;
             MildewedCount = 0;
@@ -546,7 +563,8 @@ namespace LaundryMonster
 
             ChargeForUnfinished();
 
-            RunScore += Score;
+            // The run total counts the bonus; the star rating deliberately does not.
+            RunScore += Score + BonusScore;
             RunDelivered += Delivered;
 
             float frac = Target <= 0f ? 1f : Score / Target;
@@ -680,9 +698,34 @@ namespace LaundryMonster
 
         public void Deliver(Garment g)
         {
-            Score += g.FoldedWrinkled ? Tuning.PointsWrinkled : Tuning.PointsClean;
+            float basePoints = g.FoldedWrinkled ? Tuning.PointsWrinkled : Tuning.PointsClean;
+            Score += basePoints;
             Delivered++;
             _all.Remove(g);
+
+            // A wrinkled delivery breaks the streak. It still scores, it just does not
+            // count as keeping up.
+            float bonus = 0f;
+            if (g.FoldedWrinkled)
+            {
+                CleanStreak = 0;
+            }
+            else
+            {
+                CleanStreak++;
+                BestStreakToday = Mathf.Max(BestStreakToday, CleanStreak);
+                if (CleanStreak >= Tuning.StreakMin)
+                {
+                    float earned = (CleanStreak - Tuning.StreakMin + 1) * Tuning.StreakBonusEach;
+                    bonus = Mathf.Min(earned, Mathf.Max(0f, Tuning.StreakBonusCap - BonusScore));
+                    BonusScore += bonus;
+                }
+            }
+
+            LastDeliveryTime = Time.time;
+            LastDeliveryPoints = basePoints;
+            LastDeliveryBonus = bonus;
+            LastDeliveryWorld = g.transform.position;
 
             // A clean delivery calms the Monster. A wrinkled one does not - it is laundry
             // you let spoil, so finishing it late is not an apology. This is the only way
