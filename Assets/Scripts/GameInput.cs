@@ -37,6 +37,20 @@ namespace LaundryMonster
         public static Vector2 LastTapScreen;
 
         /// <summary>
+        /// Whether the confirm just claimed came from a tap, and so whether LastTapScreen
+        /// describes it.
+        ///
+        /// The menus used to decide this by asking whether Active happened to be Touch.
+        /// That is a guess maintained somewhere else entirely - it is whatever device was
+        /// used most recently, updated by a different component in an undefined order -
+        /// and when the guess was wrong the picker threw away a tap it had already
+        /// consumed, which leaves the player on a screen that will not answer. This is
+        /// the fact rather than the guess: it is set by whichever branch of
+        /// ConfirmPressed actually returned true.
+        /// </summary>
+        public static bool ConfirmWasTap { get; private set; }
+
+        /// <summary>
         /// Did this one-shot fire recently, and claim it if so.
         ///
         /// The window is two frames because script execution order is undefined: a flag
@@ -127,11 +141,24 @@ namespace LaundryMonster
         {
             var kb = Keyboard.current;
             if (kb != null && (kb.spaceKey.wasPressedThisFrame
-                               || kb.enterKey.wasPressedThisFrame)) return true;
+                               || kb.enterKey.wasPressedThisFrame))
+            {
+                ConfirmWasTap = false;
+                return true;
+            }
             var gp = Gamepad.current;
             if (gp != null && (gp.buttonSouth.wasPressedThisFrame
-                               || gp.startButton.wasPressedThisFrame)) return true;
-            return Claim(ref TouchConfirmFrame);
+                               || gp.startButton.wasPressedThisFrame))
+            {
+                ConfirmWasTap = false;
+                return true;
+            }
+            if (Claim(ref TouchConfirmFrame))
+            {
+                ConfirmWasTap = true;
+                return true;
+            }
+            return false;
         }
 
         public static bool HelpPressed()

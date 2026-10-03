@@ -40,7 +40,30 @@ namespace LaundryMonster.Tests
         {
             SetScheme(GameInput.Scheme.Keyboard);
             typeof(GameInput).GetField("TouchPresent", HiddenStatic).SetValue(null, false);
+            if (_screen != null)
+            {
+                UnityEngine.InputSystem.InputSystem.RemoveDevice(_screen);
+                _screen = null;
+            }
         }
+
+        UnityEngine.InputSystem.Touchscreen _screen;
+
+        /// <summary>A real touchscreen, so taps arrive through TouchControls rather than
+        /// being poked into GameInput behind its back.</summary>
+        UnityEngine.InputSystem.Touchscreen Phone()
+        {
+            if (_screen == null)
+                _screen = UnityEngine.InputSystem.InputSystem.AddDevice<UnityEngine.InputSystem.Touchscreen>();
+            return _screen;
+        }
+
+        void Finger(int id, UnityEngine.InputSystem.TouchPhase phase, Vector2 at) =>
+            UnityEngine.InputSystem.InputSystem.QueueStateEvent(Phone(),
+                new UnityEngine.InputSystem.LowLevel.TouchState
+                {
+                    touchId = id, phase = phase, position = at,
+                });
 
         static void SetScheme(GameInput.Scheme s) =>
             typeof(GameInput).GetProperty("Active").GetSetMethod(true)
@@ -183,6 +206,58 @@ namespace LaundryMonster.Tests
                 scaler.referenceResolution = original;
                 Canvas.ForceUpdateCanvases();
             }
+        }
+
+        // ------------------------------------------------------------------
+        // Through TouchControls, not around it.
+        //
+        // Everything above hands GameInput a tap that TouchControls has already
+        // interpreted, which tests the half of the path that was never broken. These
+        // two start where a phone starts: at a finger on the glass.
+
+        [UnityTest]
+        public IEnumerator AQuickTapOnACardIsNotLost()
+        {
+            // The reported bug, and the reason the first fix did not fix it.
+            //
+            // A tap whose press and release reach the input system in the same update
+            // leaves the touch slot reading Ended, and never Began. TouchControls only
+            // started a menu tap on Began, so the tap was dropped before it became a
+            // confirm at all - the player taps a card and the game does not so much as
+            // flicker. It cannot happen in the editor, where frames are short enough that
+            // a finger is always down for several of them; it is the normal case for a
+            // WebGL build on a phone, which is where it was found.
+            yield return ShowThePicker();
+            var want = _dir.Offered[1];
+
+            var at = ScreenCentreOf(CardAt(1));
+            Finger(91, UnityEngine.InputSystem.TouchPhase.Began, at);
+            Finger(91, UnityEngine.InputSystem.TouchPhase.Ended, at);
+
+            yield return null;   // TouchControls reads the touch
+            yield return null;   // GameDirector claims the confirm
+            yield return null;
+
+            Assert.IsTrue(_dir.Kit.Has(want),
+                "a tap that began and ended inside one frame was dropped: on a phone that "
+                + "is what an ordinary tap looks like, and the picker never answers");
+        }
+
+        [UnityTest]
+        public IEnumerator AHeldTapOnACardStillWorks()
+        {
+            // The ordinary case, so the fix above cannot be made by breaking this one.
+            yield return ShowThePicker();
+            var want = _dir.Offered[2];
+
+            var at = ScreenCentreOf(CardAt(2));
+            Finger(92, UnityEngine.InputSystem.TouchPhase.Began, at);
+            yield return null;
+            yield return null;
+            Finger(92, UnityEngine.InputSystem.TouchPhase.Ended, at);
+            yield return null;
+
+            Assert.IsTrue(_dir.Kit.Has(want), "a normal press-and-lift tap chose nothing");
         }
     }
 }

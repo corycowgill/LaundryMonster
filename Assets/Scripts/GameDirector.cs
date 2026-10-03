@@ -330,7 +330,7 @@ namespace LaundryMonster
         /// </summary>
         void TitleConfirm()
         {
-            if (GameInput.Active == GameInput.Scheme.Touch)
+            if (GameInput.ConfirmWasTap)
             {
                 var hud = Object.FindAnyObjectByType<HUD>();
                 int btn = hud != null ? hud.TitleButtonAt(GameInput.LastTapScreen) : -1;
@@ -415,8 +415,10 @@ namespace LaundryMonster
             }
 
             // The tap was already claimed by the caller; `confirmed` is that claim
-            // handed down, not a second read of it.
-            if (confirmed && GameInput.Active == GameInput.Scheme.Touch)
+            // handed down, not a second read of it. ConfirmWasTap, not Active: the
+            // question is where THIS confirm came from, not which device the player
+            // happens to have touched most recently.
+            if (confirmed && GameInput.ConfirmWasTap)
             {
                 var hud = Object.FindAnyObjectByType<HUD>();
                 if (hud != null) return hud.UpgradeCardAt(GameInput.LastTapScreen);

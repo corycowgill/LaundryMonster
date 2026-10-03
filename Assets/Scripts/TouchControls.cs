@@ -229,7 +229,21 @@ namespace LaundryMonster
                     // enough either: with two of them the guard alternates and fires every
                     // frame, which is how one tap on the help button ended up starting a run.
                     seen.Add(id);
-                    if (began && !_menuClaimed.Contains(id))
+                    // A tap counts when the finger LANDS or when it LIFTS, whichever of
+                    // the two this frame is the first to see.
+                    //
+                    // Waiting for Began alone loses any tap quick enough that the press
+                    // and the release arrive in the same input update - the slot is only
+                    // ever read as Ended, and nobody ever hears about it. In the editor
+                    // at several hundred frames a second that essentially never happens.
+                    // In a WebGL build on a phone, running an order of magnitude slower,
+                    // it is what a brisk tap IS, which is why the upgrade cards could not
+                    // be answered on an iPhone while the identical tap worked on a desk.
+                    //
+                    // Claiming by touch id keeps a normal tap from counting twice: the
+                    // id is taken when the finger lands and the release finds it already
+                    // spent.
+                    if ((began || ended) && !_menuClaimed.Contains(id))
                     {
                         _menuClaimed.Add(id);
                         GameInput.LastTapScreen = pos;
@@ -242,8 +256,10 @@ namespace LaundryMonster
                 }
 
                 // --- pause, which is a tap rather than a hold ---
-                if (began && (pos - pauseCentreScreen).sqrMagnitude
-                             <= pauseRadiusScreen * pauseRadiusScreen)
+                // Lands-or-lifts for the same reason as the menu taps above.
+                if ((began || (ended && id != _actTouchId && id != _moveTouchId))
+                    && (pos - pauseCentreScreen).sqrMagnitude
+                       <= pauseRadiusScreen * pauseRadiusScreen)
                 {
                     GameInput.TouchPauseFrame = Time.frameCount;
                     continue;
@@ -274,17 +290,26 @@ namespace LaundryMonster
                     continue;
                 }
 
-                if (!began) continue;
+                // A finger that arrived and left inside this one frame: the ACT button
+                // has to honour it for the same reason the menus do, or a brisk tap on a
+                // slow device does nothing at all.
+                bool quick = ended && id != _actTouchId && id != _moveTouchId;
+                if (!began && !quick) continue;
 
                 // A new finger. Claim it for whichever control it landed on.
                 if ((pos - actCentreScreen).sqrMagnitude <= actRadiusScreen * actRadiusScreen
                     && _actTouchId < 0)
                 {
-                    _actTouchId = id;
-                    actStillDown = true;
                     GameInput.TouchActDownFrame = Time.frameCount;
+                    // Held for this frame even when the finger has already gone. A station
+                    // offering both a tap and a hold fires its tap on RELEASE, and only
+                    // when the hold timer moved - so a press and a release with no held
+                    // frame between them would be swallowed by the station instead.
+                    actStillDown = true;
+                    if (quick) GameInput.TouchActUpFrame = Time.frameCount;
+                    else _actTouchId = id;
                 }
-                else if (_moveTouchId < 0 && pos.x < Screen.width * 0.62f)
+                else if (began && _moveTouchId < 0 && pos.x < Screen.width * 0.62f)
                 {
                     _moveTouchId = id;
                     _moveOrigin = pos;
