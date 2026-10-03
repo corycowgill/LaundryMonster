@@ -53,8 +53,18 @@ namespace LaundryMonster
         public const int ChairCapacity = 8;
 
         // --- day shape ---
-        public const float DayBaseLength = 90f;
-        public const float DayLengthPerExtraDay = 10f;
+        //
+        // A batch is the unit of work, not a garment: two trips to fill a washer (you
+        // carry two), a 12s wash, two trips to the dryer, a 15s dry, then a 2.5s fold and
+        // a walk to the closet for each. That is a little over a minute for four garments
+        // before anything goes wrong.
+        //
+        // At 90s and 8 garments, day one asked for two full batches in the time one takes,
+        // and because garments grew faster than the clock every later day was tighter
+        // still - about 7s a garment by day eight. The day now starts long enough to
+        // finish the work and tightens gently rather than immediately.
+        public const float DayBaseLength = 150f;
+        public const float DayLengthPerExtraDay = 18f;
         public const int SpawnBase = 6;
         public const int SpawnPerDay = 2;
 
