@@ -123,15 +123,9 @@ public static class RoomBuilder
         var monsterRoot = new GameObject("MonsterPile");
         monsterRoot.transform.SetParent(root.transform, false);
         monsterRoot.transform.position = new Vector3(-6.6f, 0.3f, 1.6f);
-        if (AddModel(monsterRoot.transform, "Model", "monster", Vector3.zero,
-                     Quaternion.Euler(0f, ModelYaw, 0f), Color.white, 0.1f) == null)
-        {
-            Child(monsterRoot.transform, "Body", PrimitiveType.Sphere, Vector3.zero, Vector3.one, monsterMat);
-            Child(monsterRoot.transform, "Lump", PrimitiveType.Sphere,
-                  new Vector3(0.45f, -0.15f, 0.20f), Vector3.one * 0.75f, monsterMat);
-            Child(monsterRoot.transform, "Lump", PrimitiveType.Sphere,
-                  new Vector3(-0.40f, -0.20f, -0.25f), Vector3.one * 0.70f, monsterMat);
-        }
+        // Built rather than scanned, like everything else in the room. It was the last
+        // photoscanned object left, and the biggest one on screen.
+        MonsterArt.Build(monsterRoot.transform);
         // The Monster is where dirty laundry comes from: you pull clothes off it.
         monsterRoot.transform.position = new Vector3(-5.9f, 0f, 4.6f);
         monsterRoot.transform.localScale = Vector3.one * Tuning.MonsterMinScale;
@@ -140,6 +134,12 @@ public static class RoomBuilder
         // Eyes that open as it gets angry. The results screen has been promising these
         // for a while.
         monsterRoot.AddComponent<MonsterFace>();
+
+        // Its contact shadow lives OUTSIDE the Monster, under the room root. Parented to
+        // the Monster it would inherit the squash-and-stretch and, worse, the sway -
+        // which rotates about Z and would stand a floor shadow up on its edge.
+        RoomArt.Shadow(root.transform, new Vector3(-5.9f, 0f, 4.6f), 1.45f, 1.25f,
+                       RoomArt.Mat(ChunkyArt.FloorIvory * 0.72f, 0.05f));
 
         var hamperComp = monsterRoot.AddComponent<Hamper>();
         hamperComp.InteractRadius = 2.9f;          // it is big, so reach it from further out
@@ -170,6 +170,7 @@ public static class RoomBuilder
         BuildDecor(root.transform);
         BuildWasherCorner(root.transform);
         BuildClusters(root.transform);
+        BuildPosters(root.transform);
 
         // ---- lighting ----
         var lighting = new GameObject("Lighting");
@@ -352,7 +353,10 @@ public static class RoomBuilder
         // about y 1.85, and the machines stand in front of most of that - a shelf behind
         // them was a shelf nobody would ever see. The side walls are seen obliquely and
         // have far more visible area.
-        var shelf = RoomArt.DetergentShelf(c, new Vector3(-7.75f, 1.35f, 5.4f), shade);
+        // Down the wall to z 1.9, clear of the Monster. At full size it is 2.9m tall and
+        // nearly 3.2m across, and it stands at z 4.6 - a shelf at 5.4 spent the back half
+        // of every run behind it.
+        var shelf = RoomArt.DetergentShelf(c, new Vector3(-7.75f, 1.35f, 1.9f), shade);
         shelf.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
         RoomArt.Spill(c, new Vector3(-4.4f, 0f, 6.5f), 0.5f, new Color(0.74f, 0.86f, 0.92f));
         RoomArt.Basket(c, new Vector3(-5.3f, 0f, 6.6f), -22f, ChunkyArt.Lavender, 1, true, shade);
@@ -360,6 +364,34 @@ public static class RoomBuilder
 
         foreach (var t in corner.GetComponentsInChildren<Transform>(true))
             t.gameObject.isStatic = true;
+    }
+
+
+    /// <summary>
+    /// Things somebody stuck on the wall.
+    ///
+    /// The two long side walls were the last big empty surfaces left: everything else in
+    /// the room had been given something to be, and they were still flat cream. They are
+    /// also the only place the room can tell a joke in words.
+    ///
+    /// Hung at eye level for the CAMERA rather than for a person - the lower band ends at
+    /// y 1.24 and the side walls leave the top of the picture somewhere above y 2.4, so
+    /// the strip between is the whole of the wall anybody will ever see.
+    /// </summary>
+    static void BuildPosters(Transform root)
+    {
+        var w = new GameObject("Posters");
+        w.transform.SetParent(root, false);
+        var t = w.transform;
+
+        RoomArtPosters.Poster(t, "poster_hang_in_there", RoomArtPosters.Wall.Left,
+                              new Vector3(-8.07f, 1.90f, -2.0f), 1.22f, 2.5f);
+        RoomArtPosters.Poster(t, "poster_missing_sock", RoomArtPosters.Wall.Right,
+                              new Vector3(8.07f, 1.90f, -1.0f), 1.22f, -3.5f);
+        RoomArtPosters.Poster(t, "poster_do_not_feed", RoomArtPosters.Wall.Right,
+                              new Vector3(8.07f, 1.90f, 2.1f), 1.15f, -2f);
+        RoomArtPosters.Poster(t, "poster_employee", RoomArtPosters.Wall.Left,
+                              new Vector3(-8.07f, 1.90f, 0.4f), 1.10f, 3f);
     }
 
 
@@ -393,13 +425,15 @@ public static class RoomBuilder
 
         // Another laundry heap against the left wall, past the drawer.
         RoomArt.Pile(c, new Vector3(-7.1f, 0f, 0.9f), 1.1f, 5, shade);
-        RoomArt.Basket(c, new Vector3(-7.2f, 0f, 2.6f), 28f, ChunkyArt.Mint, 4, true, shade);
+        RoomArt.Basket(c, new Vector3(-7.25f, 0f, -1.1f), 28f, ChunkyArt.Mint, 4, true, shade);
 
         // And one lint ball, in the corner, watching.
         RoomArtProps.LintBall(c, new Vector3(-7.5f, 0f, -3.1f), 0.5f, true);
 
         // The joke everyone will see: enormous underwear on the line down the left wall.
-        RoomArtProps.GiantUnderwear(c, new Vector3(-7.88f, 2.18f, 4.6f), 0f);
+        // Also moved out from behind the Monster, and brought down the wall: above about
+        // y 2 the side walls leave the top of the picture.
+        RoomArtProps.GiantUnderwear(c, new Vector3(-7.88f, 1.96f, 0.1f), 0f);
 
         foreach (var t in cl.GetComponentsInChildren<Transform>(true))
             t.gameObject.isStatic = true;

@@ -23,11 +23,31 @@ namespace LaundryMonster
         float _blinkTimer;
         float _open;          // 0 shut, 1 wide
 
-        // Local to the pile. Its mesh runs y 0..1 and z -0.36..0.36 before the root's
-        // ~2.4x scale, so these sit just proud of the front face at mid height. The
-        // first attempt used z -0.74, which is a long way outside the laundry.
-        static readonly Vector3 LeftEye = new Vector3(-0.22f, 0.52f, -0.30f);
-        static readonly Vector3 RightEye = new Vector3(0.22f, 0.52f, -0.30f);
+        // Local to the pile, which runs y 0..1 before the root's 1.3x-2.9x scale.
+        //
+        // On the Monster's own head lump, on its forward slope - with the camera pitched
+        // fifty degrees down that is the part of it actually pointing at the player, and
+        // a face on the vertical front would be addressing the skirting board. The first
+        // attempt used z -0.74, a long way outside the laundry entirely.
+        static readonly Vector3 LeftEye = new Vector3(-0.19f, 0.82f, -0.30f);
+        static readonly Vector3 RightEye = new Vector3(0.19f, 0.82f, -0.30f);
+
+        // Built by MonsterArt and switched on with the eyes: the brows and the mouth.
+        // Rotation and scale only - their COLOUR belongs to Highlighter, which took it
+        // as the resting colour to tint from when the room was built, and two components
+        // writing the same material every frame is a fight nobody wins.
+        Transform _face, _browL, _browR, _mouth;
+
+        // How the brows were built: tipped back to lie along the curve of the head. The
+        // expression is rolled ON TOP of that, because writing a flat Euler would stand
+        // them up off the face again every frame.
+        Quaternion _browRestL = Quaternion.identity, _browRestR = Quaternion.identity;
+
+        // Calm is a mild, slightly worried arch; furious drags the inner ends down. The
+        // inner end of the left brow is its +x end, so dropping it is a negative roll,
+        // and the right brow is the mirror.
+        const float BrowCalm = 7f;
+        const float BrowAngry = 27f;
 
         static readonly Color Calm = new Color(0.95f, 0.93f, 0.88f);
         static readonly Color Furious = new Color(1f, 0.82f, 0.18f);
@@ -43,6 +63,16 @@ namespace LaundryMonster
             if (_left != null) return;
             _left = MakeEye("EyeL", LeftEye, out _scleraL, out _pupilL);
             _right = MakeEye("EyeR", RightEye, out _scleraR, out _pupilR);
+
+            foreach (var t in GetComponentsInChildren<Transform>(true))
+            {
+                if (t.name == "Face") _face = t;
+                else if (t.name == "BrowL") _browL = t;
+                else if (t.name == "BrowR") _browR = t;
+                else if (t.name == "Mouth") _mouth = t;
+            }
+            if (_browL != null) _browRestL = _browL.localRotation;
+            if (_browR != null) _browRestR = _browR.localRotation;
         }
 
         Transform MakeEye(string name, Vector3 at, out Material sclera, out Material pupil)
@@ -121,6 +151,7 @@ namespace LaundryMonster
             {
                 _left.gameObject.SetActive(show);
                 _right.gameObject.SetActive(show);
+                if (_face != null) _face.gameObject.SetActive(show);
             }
             if (!show) return;
 
@@ -136,6 +167,22 @@ namespace LaundryMonster
             if (anger > 0.75f) tint = Color.Lerp(tint, Color.white, UiKit.Pulse(9f) * 0.3f);
             _scleraL.color = tint;
             _scleraR.color = tint;
+
+            // The brows do most of the work. Two sock-shaped boxes rolling thirty-odd
+            // degrees say "furious" more plainly than any amount of colour on the eyes,
+            // and they cost two rotations a frame.
+            float brow = Mathf.Lerp(BrowCalm, -BrowAngry, _open);
+            if (_browL != null) _browL.localRotation = _browRestL * Quaternion.Euler(0f, 0f, brow);
+            if (_browR != null) _browR.localRotation = _browRestR * Quaternion.Euler(0f, 0f, -brow);
+
+            // And the mouth opens: a flat line on a calm day, a gape at the top end,
+            // with a snarl on it once the anger is past three quarters.
+            if (_mouth != null)
+            {
+                float gape = Mathf.Lerp(0.45f, 1.7f, _open);
+                if (anger > 0.75f) gape += UiKit.Pulse(7f) * 0.22f;
+                _mouth.localScale = new Vector3(1f, gape, 1f);
+            }
 
             // Angry eyes look at you; calm ones wander.
             float wander = Mathf.Sin(Time.time * 0.9f) * (1f - _open) * 0.03f;

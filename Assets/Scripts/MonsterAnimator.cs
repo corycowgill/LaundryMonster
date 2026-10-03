@@ -26,6 +26,7 @@ namespace LaundryMonster
         public float GrowPop = 0.35f;
         public float EaseSpeed = 2.6f;
 
+        float _armT;           // 0 tucked in, 1 fully reaching
         float _current = 0.45f;
         float _pop;              // decaying squash-and-stretch impulse
         float _popPhase;
@@ -39,6 +40,24 @@ namespace LaundryMonster
 
         float _reach;          // seconds of reaching left
         float _reachTotal;
+
+        Transform _arm;
+        bool _lookedForArm;
+
+        /// <summary>
+        /// The sleeve that stretches toward the sorting basket during a snatch.
+        ///
+        /// Found lazily rather than wired, because RoomBuilder regenerates the scene and
+        /// a serialised reference would be the one thing in here that goes stale.
+        /// </summary>
+        Transform Arm()
+        {
+            if (_lookedForArm) return _arm;
+            _lookedForArm = true;
+            foreach (var t in GetComponentsInChildren<Transform>(true))
+                if (t.name == "ArmPivot") { _arm = t; break; }
+            return _arm;
+        }
 
         /// <summary>
         /// Lean out toward The Chair for the duration of a snatch attempt. Purely a
@@ -85,11 +104,29 @@ namespace LaundryMonster
             // Reaching: lean further the closer it is to taking something, with a shiver
             // on top so it reads as straining rather than merely tilted.
             float lean = 0f;
+            float reachT = 0f;
             if (_reach > 0f)
             {
                 _reach = Mathf.Max(0f, _reach - Time.deltaTime);
-                float t = 1f - (_reach / _reachTotal);
-                lean = Mathf.Lerp(6f, 26f, t) + Mathf.Sin(Time.time * 26f) * 2.5f * t;
+                reachT = 1f - (_reach / _reachTotal);
+                lean = Mathf.Lerp(6f, 26f, t: reachT) + Mathf.Sin(Time.time * 26f) * 2.5f * reachT;
+            }
+
+            // The arm. A twenty-six degree lean is not a threat anybody notices across a
+            // busy room, and the snatch is the one thing the Monster does on purpose: it
+            // has three seconds to be understood. So the sleeve unfolds and stretches out
+            // toward the basket over that countdown, which is readable from anywhere and
+            // needs no text. Eased so most of the travel happens early and the last of it
+            // creeps, which is what makes the final second feel like it is about to land.
+            var arm = Arm();
+            if (arm != null)
+            {
+                float t = _reach > 0f ? 1f - Mathf.Pow(1f - reachT, 2.2f) : 0f;
+                _armT = Mathf.Lerp(_armT, t, 1f - Mathf.Exp(-9f * Time.deltaTime));
+                arm.localRotation = Quaternion.Slerp(Quaternion.Euler(MonsterArm.RestEuler),
+                                                     Quaternion.Euler(MonsterArm.ReachEuler),
+                                                     _armT);
+                arm.localScale = Vector3.Lerp(MonsterArm.RestScale, MonsterArm.ReachScale, _armT);
             }
 
             transform.localRotation = Quaternion.Euler(lean * 0.35f, sway * 0.6f, sway + wobble + lean);
