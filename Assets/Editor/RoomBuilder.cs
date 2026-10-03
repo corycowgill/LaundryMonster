@@ -356,7 +356,7 @@ public static class RoomBuilder
         // Down the wall to z 1.9, clear of the Monster. At full size it is 2.9m tall and
         // nearly 3.2m across, and it stands at z 4.6 - a shelf at 5.4 spent the back half
         // of every run behind it.
-        var shelf = RoomArt.DetergentShelf(c, new Vector3(-7.75f, 1.35f, 1.9f), shade);
+        var shelf = RoomArt.DetergentShelf(c, new Vector3(-7.75f, 1.35f, -1.0f), shade);
         shelf.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
         RoomArt.Spill(c, new Vector3(-4.4f, 0f, 6.5f), 0.5f, new Color(0.74f, 0.86f, 0.92f));
         RoomArt.Basket(c, new Vector3(-5.3f, 0f, 6.6f), -22f, ChunkyArt.Lavender, 1, true, shade);
@@ -384,14 +384,43 @@ public static class RoomBuilder
         w.transform.SetParent(root, false);
         var t = w.transform;
 
+        // Positions are measured, not chosen. Laundry Monster > Survey Walls walks each
+        // wall through the real camera; Check Poster Visibility then scores every poster
+        // at three screen shapes.
+        //
+        // What they found, and it is not what eye-balling one screenshot suggested:
+        //
+        //  - The BACK wall is useless. Every inch of it sits under the objective card.
+        //  - The constraint on the side walls is z, not height. On 16:9 and anything
+        //    narrower, the near end of both side walls is off the edge of the frame
+        //    entirely - the first four posters were hung at z -2.3 and were invisible on
+        //    every desktop while looking fine on a phone held sideways.
+        //  - The strip that survives everything down to 4:3 is about y 1.1 to 2.1,
+        //    z 0.2 to 3.4. That is three posters a wall, and no more.
+        const float Y = 1.62f;
+        const float H = 0.90f;
+
+        // Slots read off Laundry Monster > Sweep Poster Slots, which scores every position
+        // along both walls at three screen shapes and reports the worst of them.
+        //
+        // The result is lopsided and there is no fixing it: the closet stands against the
+        // right-hand wall, and because the camera views that wall from the far side of the
+        // room the closet shadows everything in front of z 2.6. The right wall holds one
+        // poster. The left wall is clear from z 0.6 to 3.8 and holds four.
+        //
+        // Check any change with Laundry Monster > Check Poster Visibility, which scores
+        // each poster as built and names whatever is standing in front of it.
         RoomArtPosters.Poster(t, "poster_hang_in_there", RoomArtPosters.Wall.Left,
-                              new Vector3(-8.07f, 1.90f, -2.0f), 1.22f, 2.5f);
-        RoomArtPosters.Poster(t, "poster_missing_sock", RoomArtPosters.Wall.Right,
-                              new Vector3(8.07f, 1.90f, -1.0f), 1.22f, -3.5f);
-        RoomArtPosters.Poster(t, "poster_do_not_feed", RoomArtPosters.Wall.Right,
-                              new Vector3(8.07f, 1.90f, 2.1f), 1.15f, -2f);
+                              new Vector3(-8.07f, Y, 0.62f), H, 2.5f);
         RoomArtPosters.Poster(t, "poster_employee", RoomArtPosters.Wall.Left,
-                              new Vector3(-8.07f, 1.90f, 0.4f), 1.10f, 3f);
+                              new Vector3(-8.07f, Y, 1.64f), H, -3f);
+        RoomArtPosters.Poster(t, "poster_sock_void", RoomArtPosters.Wall.Left,
+                              new Vector3(-8.07f, Y, 2.66f), H, 2f);
+        RoomArtPosters.Poster(t, "poster_missing_sock", RoomArtPosters.Wall.Left,
+                              new Vector3(-8.07f, Y, 3.68f), H, -3.5f);
+
+        RoomArtPosters.Poster(t, "poster_do_not_feed", RoomArtPosters.Wall.Right,
+                              new Vector3(8.07f, Y, 3.20f), H, 2f);
     }
 
 
@@ -416,7 +445,7 @@ public static class RoomBuilder
         RoomArtProps.LintCorner(c, new Vector3(6.9f, 0f, 6.3f), shade);
 
         // Lost and found, down the right-hand wall between the dryers and the closet.
-        RoomArtProps.LostAndFound(c, new Vector3(7.3f, 0f, 3.2f), shade);
+        RoomArtProps.LostAndFound(c, new Vector3(7.3f, 0f, 4.6f), shade);
 
         // A trail of oversized socks, leading out of the room toward the Monster. The
         // socks are deliberately much bigger than real ones - at this zoom a real-sized
@@ -433,7 +462,10 @@ public static class RoomBuilder
         // The joke everyone will see: enormous underwear on the line down the left wall.
         // Also moved out from behind the Monster, and brought down the wall: above about
         // y 2 the side walls leave the top of the picture.
-        RoomArtProps.GiantUnderwear(c, new Vector3(-7.88f, 1.96f, 0.1f), 0f);
+        // Down toward the camera, out of the strip the posters need. Everything on the
+        // side walls is competing for the same few metres: Survey Walls says only
+        // z 0.2 to 3.4 survives a 4:3 window, and the posters have first claim on it.
+        RoomArtProps.GiantUnderwear(c, new Vector3(-7.88f, 1.80f, -2.0f), 0f);
 
         foreach (var t in cl.GetComponentsInChildren<Transform>(true))
             t.gameObject.isStatic = true;
