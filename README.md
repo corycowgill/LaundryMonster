@@ -41,6 +41,28 @@ Controls adapt to the device you are using, and the HUD names the right button.
 | pause | Esc / P | Start | the pause button |
 | tutorial / credits | T / C | LB / RB | the title buttons |
 
+## Tests
+
+29 regression tests, all green. Every one exists because something was broken once.
+
+```
+unity command run_tests --mode EditMode                  # 17 tests, ~3s
+unity command run_tests --mode PlayMode --async_tests    # 12 tests, ~3s
+unity command test_status                                # poll the PlayMode run
+```
+
+PlayMode must run async: entering play mode triggers a domain reload that drops a
+synchronous request.
+
+| suite | covers |
+|---|---|
+| `Assets/Tests/EditMode` | the teaching schedule, the shape of a day, the upgrade kit, briefing copy, scoring invariants |
+| `Assets/Tests/PlayMode` | machine unloading, one-slot sock matching, phase freezing, the day-boundary charge, run resets |
+
+The suite is checked against a deliberately reintroduced bug: restoring the old
+state-derived `HasFinishedLoad` fails exactly the two unloading tests, and nothing else.
+A test that cannot fail is not a test.
+
 ## Project facts
 
 | | |
