@@ -28,8 +28,19 @@ namespace LaundryMonster
         /// <summary>Permanent carry slots lost this run, e.g. to the AirPods disaster.</summary>
         public int CarryPenalty;
 
+        static Upgrades Kit => GameDirector.Instance != null ? GameDirector.Instance.Kit : null;
+
+        /// <summary>
+        /// Base capacity, plus whatever the basket adds, minus whatever the AirPods cost.
+        /// The penalty applies on top of the upgrade rather than instead of it, so buying
+        /// a basket does not quietly undo a permanent loss.
+        /// </summary>
         public int CarryCapacity =>
-            Mathf.Max(Tuning.MinCarryCapacity, Tuning.CarryCapacity - CarryPenalty);
+            Mathf.Max(Tuning.MinCarryCapacity,
+                      Tuning.CarryCapacity + (Kit != null ? Kit.CarryBonus : 0) - CarryPenalty);
+
+        /// <summary>Walking speed after upgrades. The basket is heavy.</summary>
+        public float EffectiveSpeed => MoveSpeed * (Kit != null ? Kit.MoveSpeedMultiplier : 1f);
 
         public int FreeSlots => CarryCapacity - Carried.Count;
 
@@ -56,6 +67,7 @@ namespace LaundryMonster
             Move();
             FindNearest();
             HandleInteract();
+            HandleSpray();
         }
 
         void Move()
@@ -63,8 +75,9 @@ namespace LaundryMonster
             Vector2 input = GameInput.Move;
 
             var pos = transform.position;
-            pos.x = Mathf.Clamp(pos.x + input.x * MoveSpeed * Time.deltaTime, RoomMin.x, RoomMax.x);
-            pos.z = Mathf.Clamp(pos.z + input.y * MoveSpeed * Time.deltaTime, RoomMin.y, RoomMax.y);
+            float speed = EffectiveSpeed;
+            pos.x = Mathf.Clamp(pos.x + input.x * speed * Time.deltaTime, RoomMin.x, RoomMax.x);
+            pos.z = Mathf.Clamp(pos.z + input.y * speed * Time.deltaTime, RoomMin.y, RoomMax.y);
             transform.position = pos;
 
             if (input.sqrMagnitude > 0.01f)
@@ -173,9 +186,42 @@ namespace LaundryMonster
             HoldProgress = 0f;
         }
 
+        /// <summary>
+        /// Wrinkle Spray: rescue one carried wrinkled garment back to clean and dry, with
+        /// a fresh wrinkle timer. One charge a day, so it is a decision rather than a
+        /// repair tool - the point is choosing WHICH garment is worth it.
+        /// </summary>
+        void HandleSpray()
+        {
+            var kit = GameDirector.Instance != null ? GameDirector.Instance.Kit : null;
+            if (kit == null || !kit.CanSpray) return;
+            if (!GameInput.SprayPressed()) return;
+
+            Garment target = null;
+            foreach (var g in Carried)
+                if (g != null && g.State == GarmentState.Wrinkled) { target = g; break; }
+
+            if (target == null)
+            {
+                GameDirector.Instance.Flash("nothing wrinkled in your arms to spray.",
+                                            new Color(0.8f, 0.8f, 0.85f));
+                return;
+            }
+
+            if (!kit.SpendSpray()) return;
+
+            target.SetState(GarmentState.CleanDry);   // SetState resets the decay clock
+            target.FoldedWrinkled = false;
+            SfxPlayer.Play(Sfx.Safe, 0.95f);
+            GameDirector.Instance.Flash("wrinkle spray. good as new, for now.",
+                                        new Color(0.6f, 0.9f, 0.8f));
+        }
+
         public void Take(Garment g)
         {
-            if (Carried.Count >= Tuning.CarryCapacity) return;
+            // CarryCapacity, not the raw constant: this gate ignored both the AirPods
+            // penalty and the basket, so a one-slot player could still pick up two.
+            if (Carried.Count >= CarryCapacity) return;
 
             Carried.Add(g);
             g.gameObject.SetActive(true);

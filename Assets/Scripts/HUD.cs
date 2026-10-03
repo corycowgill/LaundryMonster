@@ -86,6 +86,16 @@ namespace LaundryMonster
         Text _summaryTitle, _summaryStats, _summaryAction;
         readonly List<Image> _stars = new List<Image>();
 
+        // upgrades
+        GameObject _picker;
+        readonly List<RectTransform> _pickCards = new List<RectTransform>();
+        readonly List<Text> _pickName = new List<Text>();
+        readonly List<Text> _pickBody = new List<Text>();
+        readonly List<Text> _pickKey = new List<Text>();
+        readonly List<Rect> _pickRects = new List<Rect>();
+        Text _ownedStrip, _sprayText;
+        RectTransform _sprayChip;
+
         // briefing
         GameObject _briefing;
         Text _briefTitle, _briefBody, _briefAction;
@@ -157,6 +167,7 @@ namespace LaundryMonster
             BuildFrontEnd(root);
             BuildSummary(root);
             BuildBriefing(root);
+            BuildPicker(root);
             BuildCredits(root);
         }
 
@@ -318,6 +329,20 @@ namespace LaundryMonster
             _backlogText = Body(card, "", 24, TextAnchor.UpperRight);
             _backlogText.rectTransform.offsetMin = new Vector2(30f, 0f);
             _backlogText.rectTransform.offsetMax = new Vector2(-28f, -20f);
+
+            // What you are carrying this run, and what it is doing for you.
+            _ownedStrip = Body(parent, "", 23, TextAnchor.LowerLeft, UiKit.Cream);
+            UiKit.Place(_ownedStrip.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 0f),
+                        new Vector2(38f, 168f), new Vector2(620f, 34f));
+            var stripOutline = _ownedStrip.gameObject.AddComponent<Outline>();
+            stripOutline.effectColor = UiKit.NavyDeep;
+            stripOutline.effectDistance = new Vector2(2f, -2f);
+
+            _sprayChip = UiKit.Card(parent, "Spray", UiKit.Mint(), UiKit.Navy, 5f);
+            UiKit.Place(_sprayChip, new Vector2(0f, 0f), new Vector2(0f, 0f),
+                        new Vector2(38f, 210f), new Vector2(330f, 62f));
+            _sprayText = Head(_sprayChip, "", 26, TextAnchor.MiddleCenter);
+            _sprayChip.gameObject.SetActive(false);
 
             // Segments, not a smooth bar: you can count how many you have left.
             var segs = new GameObject("Segments");
@@ -745,6 +770,108 @@ namespace LaundryMonster
             _briefAction.text = GameInput.ConfirmGlyph + "   start day " + _dir.Day;
         }
 
+        /// <summary>
+        /// The choice of three, offered after a day worth at least one star.
+        ///
+        /// Every card states what it gives AND what it costs, because an upgrade whose
+        /// tradeoff is hidden is a trap rather than a decision.
+        /// </summary>
+        void BuildPicker(Transform root)
+        {
+            _picker = Panel(root, "Picker");
+
+            var dim = UiKit.Block(_picker.transform, "Dim",
+                                  new Color(UiKit.NavyDeep.r, UiKit.NavyDeep.g,
+                                            UiKit.NavyDeep.b, 0.88f), UiKit.White);
+            dim.rectTransform.anchorMin = Vector2.zero;
+            dim.rectTransform.anchorMax = Vector2.one;
+            dim.rectTransform.offsetMin = Vector2.zero;
+            dim.rectTransform.offsetMax = Vector2.zero;
+            dim.type = Image.Type.Simple;
+
+            var heading = Head(_picker.transform, "PICK ONE", 64, TextAnchor.UpperCenter, UiKit.Cream);
+            UiKit.Place(heading.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                        new Vector2(0f, -70f), new Vector2(1200f, 90f));
+
+            var sub2 = Body(_picker.transform, "a good day earns one piece of equipment",
+                            28, TextAnchor.UpperCenter, UiKit.Yellow);
+            UiKit.Place(sub2.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                        new Vector2(0f, -156f), new Vector2(1200f, 44f));
+
+            const float w = 480f, h = 420f, gap = 36f;
+            for (int i = 0; i < Tuning.UpgradeChoices; i++)
+            {
+                float x = (i - 1) * (w + gap);
+                var pos = new Vector2(x, -40f);
+
+                var card = UiKit.Card(_picker.transform, "Pick" + i, UiKit.Cream, UiKit.Navy, 7f);
+                UiKit.Place(card, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                            pos, new Vector2(w, h));
+
+                var cap = UiKit.Card(card, "Key", UiKit.Yellow, UiKit.Navy, 4f, UiKit.Card9, false);
+                UiKit.Place(cap, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                            new Vector2(0f, -22f), new Vector2(84f, 58f));
+                _pickKey.Add(Head(cap, "1", 34, TextAnchor.MiddleCenter));
+
+                var name = Head(card, "", 36, TextAnchor.UpperCenter);
+                name.rectTransform.offsetMin = new Vector2(24f, 0f);
+                name.rectTransform.offsetMax = new Vector2(-24f, -96f);
+                _pickName.Add(name);
+
+                var body = Body(card, "", 25, TextAnchor.UpperLeft);
+                body.rectTransform.offsetMin = new Vector2(34f, 30f);
+                body.rectTransform.offsetMax = new Vector2(-34f, -160f);
+                body.horizontalOverflow = HorizontalWrapMode.Wrap;
+                _pickBody.Add(body);
+
+                _pickCards.Add(card);
+                _pickRects.Add(new Rect(0f, 0f, 0f, 0f));   // filled in on show
+            }
+
+            _picker.SetActive(false);
+        }
+
+        void UpdatePicker()
+        {
+            var dir = _dir;
+            for (int i = 0; i < _pickCards.Count; i++)
+            {
+                bool used = i < dir.Offered.Count;
+                SetActive(_pickCards[i].gameObject, used);
+                if (!used) continue;
+
+                var info = Upgrades.Describe(dir.Offered[i]);
+                _pickName[i].text = info.Name;
+                _pickBody[i].text = info.Effect + "\n\n" + info.Tradeoff;
+                _pickKey[i].text = PickGlyph(i);
+
+                // Screen rect in reference units, for touch hit-testing.
+                var rt = _pickCards[i];
+                var c = rt.anchoredPosition;
+                var sz = rt.sizeDelta;
+                _pickRects[i] = new Rect(RefW * 0.5f + c.x - sz.x * 0.5f,
+                                         RefH * 0.5f + c.y - sz.y * 0.5f, sz.x, sz.y);
+            }
+        }
+
+        static string PickGlyph(int i)
+        {
+            if (GameInput.Active == GameInput.Scheme.Gamepad)
+                return i == 0 ? "X" : i == 1 ? "Y" : "B";
+            if (GameInput.Active == GameInput.Scheme.Touch) return "TAP";
+            return (i + 1).ToString();
+        }
+
+        /// <summary>Which offered card a tap landed on, or -1. Touch has no EventSystem.</summary>
+        public int UpgradeCardAt(Vector2 screenPoint)
+        {
+            if (_canvas == null || _canvas.scaleFactor <= 0f) return -1;
+            var p = screenPoint / _canvas.scaleFactor;
+            for (int i = 0; i < _pickRects.Count && i < _dir.Offered.Count; i++)
+                if (_pickRects[i].Contains(p)) return i;
+            return -1;
+        }
+
         // ================= credits =================
 
         void BuildCredits(Transform root)
@@ -795,6 +922,8 @@ namespace LaundryMonster
             if (_tutorial == null) _tutorial = Object.FindAnyObjectByType<Tutorial>();
 
             var ph = _dir.CurrentPhase;
+            // The picker is a full-screen decision, so the room HUD steps out of the way.
+            // The briefing keeps it: knowing what day it is while reading the card helps.
             bool playing = ph == Phase.Playing || ph == Phase.DaySummary || ph == Phase.Briefing;
             bool front = ph == Phase.Intro || ph == Phase.Title || ph == Phase.Help;
 
@@ -803,6 +932,8 @@ namespace LaundryMonster
             SetActive(_credits, ph == Phase.Credits);
             SetActive(_briefing, ph == Phase.Briefing);
             if (ph == Phase.Briefing) UpdateBriefing();
+            SetActive(_picker, ph == Phase.UpgradePick);
+            if (ph == Phase.UpgradePick) UpdatePicker();
             SetActive(_summary, ph == Phase.DaySummary || ph == Phase.RunOver);
 
             if (ph == Phase.Credits) UpdateCredits();
@@ -889,8 +1020,44 @@ namespace LaundryMonster
 
             int backlog = _dir.Backlog;
             _backlogText.text = backlog + " waiting";
+
+            UpdateKitStrip();
             _backlogText.color = backlog >= Tuning.MonsterFullPile
                 ? UiKit.Red : new Color(UiKit.Navy.r, UiKit.Navy.g, UiKit.Navy.b, 0.7f);
+        }
+
+        /// <summary>The owned-upgrade line, and the spray charge when there is one.</summary>
+        void UpdateKitStrip()
+        {
+            var kit = _dir.Kit;
+            if (kit == null || _ownedStrip == null) return;
+
+            if (kit.Count == 0)
+            {
+                _ownedStrip.text = "";
+            }
+            else
+            {
+                var sb = new System.Text.StringBuilder("KIT:  ");
+                bool first = true;
+                foreach (var id in kit.Owned)
+                {
+                    if (!first) sb.Append("   ");
+                    sb.Append(Upgrades.Describe(id).Name);
+                    first = false;
+                }
+                _ownedStrip.text = sb.ToString();
+            }
+
+            bool spray = kit.Has(UpgradeId.WrinkleSpray);
+            SetActive(_sprayChip.gameObject, spray);
+            if (!spray) return;
+
+            bool ready = kit.CanSpray;
+            _sprayText.text = ready
+                ? GameInput.SprayGlyph + "   WRINKLE SPRAY  x" + kit.SprayCharges
+                : "SPRAY USED - refills tomorrow";
+            UiKit.SetCardColors(_sprayChip, ready ? UiKit.Mint() : UiKit.Grey, UiKit.Navy);
         }
 
         void UpdateObjective()

@@ -25,7 +25,10 @@ namespace LaundryMonster
         public override void Interact(PlayerController p) { }
 
         public override float HoldSeconds(PlayerController p) =>
-            FirstFoldable(p) != null ? Tuning.FoldHold : 0f;
+            FirstFoldable(p) != null
+                ? (GameDirector.Instance != null ? GameDirector.Instance.Kit.FoldSeconds
+                                                 : Tuning.FoldHold)
+                : 0f;
 
         public override string HoldPrompt(PlayerController p)
         {

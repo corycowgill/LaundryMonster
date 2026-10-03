@@ -4,7 +4,7 @@ using UnityEngine.InputSystem;
 
 namespace LaundryMonster
 {
-    public enum Phase { Intro, Title, Help, Credits, Briefing, Playing, DaySummary, RunOver }
+    public enum Phase { Intro, Title, Help, Credits, Briefing, UpgradePick, Playing, DaySummary, RunOver }
 
     /// <summary>
     /// Runs the day: spawns laundry, ticks every decay clock, scores deliveries,
@@ -139,6 +139,12 @@ namespace LaundryMonster
         /// <summary>The system being introduced on the briefing card, if one is up.</summary>
         public Tuning.Unlock PendingUnlock { get; private set; }
 
+        /// <summary>Everything bought this run. Owned by the run, cleared when one starts.</summary>
+        public readonly Upgrades Kit = new Upgrades();
+
+        /// <summary>The three on offer right now, while the picker is up.</summary>
+        public readonly List<UpgradeId> Offered = new List<UpgradeId>();
+
         void Awake()
         {
             Instance = this;
@@ -161,6 +167,8 @@ namespace LaundryMonster
         /// <summary>Start a brand new run from the title screen.</summary>
         public void StartRun()
         {
+            Kit.ResetForRun();
+            Offered.Clear();
             Monster = 0f;
             RunScore = 0f;
             RunDelivered = 0;
@@ -175,6 +183,7 @@ namespace LaundryMonster
 
             // A day that introduces something opens on its briefing. IsRunning is false
             // there, so nothing ticks while the player reads it.
+            Kit.BeginDay();
             PendingUnlock = Tuning.UnlockFor(day);
             CurrentPhase = PendingUnlock == Tuning.Unlock.None ? Phase.Playing : Phase.Briefing;
             DayTimer = 0f;
@@ -282,7 +291,11 @@ namespace LaundryMonster
                     break;
 
                 case Phase.DaySummary:
-                    if (go) BeginDay(Day + 1);
+                    if (go) AdvanceFromSummary();
+                    break;
+
+                case Phase.UpgradePick:
+                    HandleUpgradePick();
                     break;
 
                 case Phase.RunOver:
@@ -330,6 +343,64 @@ namespace LaundryMonster
             var gp = UnityEngine.InputSystem.Gamepad.current;
             if (gp != null && gp.startButton.wasPressedThisFrame) return true;
             return GameInput.PauseTapped();
+        }
+
+        /// <summary>
+        /// Leaving the day summary. A day worth at least one star earns a pick, provided
+        /// there is anything left to buy.
+        /// </summary>
+        void AdvanceFromSummary()
+        {
+            if (Stars > 0 && Kit.AnyAvailable())
+            {
+                Offered.Clear();
+                Offered.AddRange(Kit.Offer(Tuning.UpgradeChoices));
+                if (Offered.Count > 0) { CurrentPhase = Phase.UpgradePick; return; }
+            }
+            BeginDay(Day + 1);
+        }
+
+        void HandleUpgradePick()
+        {
+            int choice = UpgradeChoicePressed();
+            if (choice < 0 || choice >= Offered.Count) return;
+
+            Kit.Grant(Offered[choice]);
+            var info = Upgrades.Describe(Offered[choice]);
+            Offered.Clear();
+            SfxPlayer.Play(Sfx.Deliver, 1f);
+            BeginDay(Day + 1);
+            Flash(info.Name + " acquired", new Color(0.95f, 0.8f, 0.3f));
+        }
+
+        /// <summary>
+        /// Which of the three was chosen, or -1. Number keys, face buttons, or a tap on
+        /// the card itself - the picker has to be usable on whatever is in your hands.
+        /// </summary>
+        static int UpgradeChoicePressed()
+        {
+            var kb = UnityEngine.InputSystem.Keyboard.current;
+            if (kb != null)
+            {
+                if (kb.digit1Key.wasPressedThisFrame) return 0;
+                if (kb.digit2Key.wasPressedThisFrame) return 1;
+                if (kb.digit3Key.wasPressedThisFrame) return 2;
+            }
+
+            var gp = UnityEngine.InputSystem.Gamepad.current;
+            if (gp != null)
+            {
+                if (gp.buttonWest.wasPressedThisFrame) return 0;
+                if (gp.buttonNorth.wasPressedThisFrame) return 1;
+                if (gp.buttonEast.wasPressedThisFrame) return 2;
+            }
+
+            if (GameInput.ConfirmPressed() && GameInput.Active == GameInput.Scheme.Touch)
+            {
+                var hud = Object.FindAnyObjectByType<HUD>();
+                if (hud != null) return hud.UpgradeCardAt(GameInput.LastTapScreen);
+            }
+            return -1;
         }
 
         static bool TutorialPressed()

@@ -30,6 +30,7 @@ namespace LaundryMonster
         internal static int TouchHelpFrame = -100;
         internal static int TouchBackFrame = -100;
         internal static int TouchPauseFrame = -100;
+        internal static int TouchSprayFrame = -100;
         internal static bool TouchPresent;
 
         /// <summary>Screen position of the most recent menu tap, for hit-testing buttons.</summary>
@@ -151,6 +152,23 @@ namespace LaundryMonster
                                || gp.selectButton.wasPressedThisFrame)) return true;
             return Claim(ref TouchBackFrame);
         }
+
+        /// <summary>Use the Wrinkle Spray: Q, X on a pad, or the on-screen button.</summary>
+        public static bool SprayPressed()
+        {
+            var kb = Keyboard.current;
+            if (kb != null && kb.qKey.wasPressedThisFrame) return true;
+            var gp = Gamepad.current;
+            if (gp != null && gp.buttonWest.wasPressedThisFrame) return true;
+            return Claim(ref TouchSprayFrame);
+        }
+
+        public static string SprayGlyph => Active switch
+        {
+            Scheme.Gamepad => "(X)",
+            Scheme.Touch => "SPRAY",
+            _ => "Q",
+        };
 
         /// <summary>The on-screen pause button was tapped.</summary>
         public static bool PauseTapped() => Claim(ref TouchPauseFrame);

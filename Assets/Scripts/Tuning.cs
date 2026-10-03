@@ -133,6 +133,17 @@ namespace LaundryMonster
         public const float MonsterPerChairOverflowSecond = 0.5f;
         public const float MonsterMax = 30f;
 
+        // --- upgrades ---
+        //
+        // Each one is a trade. Walking is the real cost in this game, so the basket pays
+        // for its capacity in speed; an upgrade that only removed cost would flatten the
+        // thing it is supposed to make interesting.
+        public const int BasketCarryBonus = 2;              // 2 -> 4
+        public const float BasketSpeedMultiplier = 0.85f;   // -15%
+        public const float FoldingBoardMultiplier = 0.75f;  // -25% fold time
+        public const int SprayUsesPerDay = 1;
+        public const int UpgradeChoices = 3;
+
         // --- the Monster reaches for The Chair ---
         //
         // Anger and backlog are different things and are shown differently. BACKLOG is how

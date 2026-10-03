@@ -44,6 +44,28 @@ turn into inside the drum: mildewed goes back in a washer, wrinkled back in a dr
 Machine state tracks *the cycle*, not the garments, precisely so that a load cannot
 become stuck by spoiling where it sits.
 
+## 2x. Upgrades
+
+A day worth at least one star offers a choice of three. Each is a **trade**, because
+walking is the real cost in this game and an upgrade that only removed cost would
+flatten the thing it is meant to make interesting.
+
+| upgrade | gives | costs |
+|---|---|---|
+| Laundry Basket | carry 4 instead of 2 | 15% slower on foot |
+| Folding Board | folding 1.9s instead of 2.5s | nothing |
+| Wrinkle Spray | 1/day: one carried wrinkled garment back to clean & dry, fresh timer | one charge, refills tomorrow |
+
+None stack, so owning one removes it from the pool rather than offering a dead second
+copy. Card text is generated from the tuning constants, so a card cannot promise a
+number the game does not deliver. Upgrades belong to the **run** and are cleared by
+`StartRun`.
+
+The AirPods penalty applies *on top of* the basket rather than instead of it — buying
+equipment never quietly undoes a permanent loss — and capacity still floors at
+`MinCarryCapacity`, where sock matching keeps working because socks can be left at the
+drawer.
+
 ## 2y. Anger, backlog, and the Chair Snatch
 
 Two different numbers, shown as two different things:

@@ -39,6 +39,9 @@ namespace LaundryMonster
         public static readonly Color Red = new Color(0.910f, 0.271f, 0.235f, 1f);
         public static readonly Color Grey = new Color(0.788f, 0.800f, 0.824f, 1f);
 
+        /// <summary>A soft green for "ready to use", distinct from the alarm palette.</summary>
+        public static Color Mint() => new Color(0.639f, 0.918f, 0.792f, 1f);
+
         // ---------- generated sprites ----------
 
         static Sprite _card, _pill, _white, _disc, _ring, _bar, _star;
