@@ -31,6 +31,9 @@ namespace LaundryMonster
         internal static int TouchBackFrame = -100;
         internal static bool TouchPresent;
 
+        /// <summary>Screen position of the most recent menu tap, for hit-testing buttons.</summary>
+        public static Vector2 LastTapScreen;
+
         /// <summary>
         /// Did this one-shot fire recently, and claim it if so.
         ///

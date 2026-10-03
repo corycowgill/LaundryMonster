@@ -4,7 +4,7 @@ using UnityEngine.InputSystem;
 
 namespace LaundryMonster
 {
-    public enum Phase { Intro, Title, Help, Playing, DaySummary, RunOver }
+    public enum Phase { Intro, Title, Help, Credits, Playing, DaySummary, RunOver }
 
     /// <summary>
     /// Runs the day: spawns laundry, ticks every decay clock, scores deliveries,
@@ -223,12 +223,21 @@ namespace LaundryMonster
                     break;
 
                 case Phase.Title:
-                    if (go) StartRun();
+                    if (go) TitleConfirm();
                     else if (help) CurrentPhase = Phase.Help;
+                    else if (TutorialPressed()) StartTutorial();
+                    else if (CreditsPressed()) OpenCredits();
                     break;
+
+                case Phase.Credits:
+                    if (go || back) CurrentPhase = Phase.Title;
+                    break;
+
+                // (the title's own confirm is handled by TitleConfirm below)
 
                 case Phase.Help:
                     if (go || back || help) CurrentPhase = Phase.Title;
+                    else if (TutorialPressed()) StartTutorial();
                     break;
 
                 case Phase.DaySummary:
@@ -241,10 +250,87 @@ namespace LaundryMonster
             }
         }
 
+        /// <summary>
+        /// Confirm on the title screen. A keyboard or pad confirm means "start"; a tap
+        /// means whichever button it landed on, because there is no EventSystem to do
+        /// that for us and the buttons would otherwise be unreachable on a phone.
+        /// </summary>
+        void TitleConfirm()
+        {
+            if (GameInput.Active == GameInput.Scheme.Touch)
+            {
+                var hud = Object.FindAnyObjectByType<HUD>();
+                int btn = hud != null ? hud.TitleButtonAt(GameInput.LastTapScreen) : -1;
+                switch (btn)
+                {
+                    case 1: StartTutorial(); return;
+                    case 2: CurrentPhase = Phase.Help; return;
+                    case 3: OpenCredits(); return;
+                    case 0: StartRun(); return;
+                    default: StartRun(); return;   // a tap anywhere else still starts
+                }
+            }
+            StartRun();
+        }
+
+        void OpenCredits()
+        {
+            var hud = Object.FindAnyObjectByType<HUD>();
+            if (hud != null) hud.RewindCredits();
+            CurrentPhase = Phase.Credits;
+        }
+
+        static bool TutorialPressed()
+        {
+            var kb = UnityEngine.InputSystem.Keyboard.current;
+            if (kb != null && kb.tKey.wasPressedThisFrame) return true;
+            var gp = UnityEngine.InputSystem.Gamepad.current;
+            return gp != null && gp.leftShoulder.wasPressedThisFrame;
+        }
+
+        static bool CreditsPressed()
+        {
+            var kb = UnityEngine.InputSystem.Keyboard.current;
+            if (kb != null && kb.cKey.wasPressedThisFrame) return true;
+            var gp = UnityEngine.InputSystem.Gamepad.current;
+            return gp != null && gp.rightShoulder.wasPressedThisFrame;
+        }
+
+        /// <summary>
+        /// Start a run with the tutorial driving it.
+        ///
+        /// It is a real run, not a sandbox: the same room, the same machines, the same
+        /// scoring. Only the pressure is held off, by TutorialRunning below.
+        /// </summary>
+        public void StartTutorial()
+        {
+            StartRun();
+            var tut = Object.FindAnyObjectByType<Tutorial>();
+            if (tut != null) tut.Begin();
+        }
+
+        /// <summary>True while a tutorial run is in progress and the gloves are off.</summary>
+        public bool TutorialRunning
+        {
+            get
+            {
+                if (_tutorial == null) _tutorial = Object.FindAnyObjectByType<Tutorial>();
+                return _tutorial != null && _tutorial.Running;
+            }
+        }
+
+        Tutorial _tutorial;
+
         void TickDay()
         {
             float dt = Time.deltaTime;
-            DayTimer += dt;
+
+            // The tutorial holds every clock. A player still working out which lid is
+            // which should not lose laundry to mildew while they read the instruction,
+            // and the whole point of the pressure is that you meet it once you can cope.
+            bool teaching = TutorialRunning;
+            if (!teaching) DayTimer += dt;
+            float decayDt = teaching ? 0f : dt;
 
             while (_spawnIndex < _spawnTimes.Count && DayTimer >= _spawnTimes[_spawnIndex])
             {
@@ -258,7 +344,7 @@ namespace LaundryMonster
             {
                 var g = _all[i];
                 if (g == null) { _all.RemoveAt(i); continue; }
-                g.Tick(dt);
+                g.Tick(decayDt);
 
                 if (g.IsDecaying && g.DecayMultiplier > 0f)
                 {
@@ -268,12 +354,12 @@ namespace LaundryMonster
                 }
             }
 
-            TickWarning(mostUrgent, dt);
+            TickWarning(mostUrgent, decayDt);
             UpdateMonsterVisual();
 
             if (Monster >= Tuning.MonsterMax) { EndRun(); return; }
 
-            if (DayTimer >= DayLength) EndDay();
+            if (!teaching && DayTimer >= DayLength) EndDay();
         }
 
         /// <summary>

@@ -15,6 +15,13 @@ namespace LaundryMonster
         public float Timer;
         float _cycleLength;
 
+        /// <summary>Seconds still to run on the current cycle.</summary>
+        public float SecondsLeft => Mathf.Max(0f, _cycleLength - Timer);
+
+        /// <summary>0..1 through the current cycle, for the badge's progress ring.</summary>
+        public float CycleFraction =>
+            Running && _cycleLength > 0f ? Mathf.Clamp01(Timer / _cycleLength) : 0f;
+
         /// <summary>Dryers only. Debt that survives the end of the day.</summary>
         public int Lint;
 

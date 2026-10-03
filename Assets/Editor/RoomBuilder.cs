@@ -38,7 +38,8 @@ public static class RoomBuilder
 
         var existing = GameObject.Find(RootName);
         if (existing != null) Object.DestroyImmediate(existing);
-        foreach (var stale in new[] { "Player", "GameDirector", "HUD", "Lighting", "TouchControls" })
+        foreach (var stale in new[] { "Player", "GameDirector", "HUD", "Lighting",
+                                      "TouchControls", "Tutorial", "Music" })
         {
             var go = GameObject.Find(stale);
             if (go != null) Object.DestroyImmediate(go);
@@ -142,6 +143,11 @@ public static class RoomBuilder
         var touchGo = new GameObject("TouchControls");
         touchGo.AddComponent<TouchControls>();
 
+        var tutorialGo = new GameObject("Tutorial");
+        tutorialGo.AddComponent<Tutorial>();
+
+        BuildMusic();
+
         var dirGo = new GameObject("GameDirector");
         var dir = dirGo.AddComponent<GameDirector>();
         dir.Hamper = hamperComp;
@@ -164,7 +170,10 @@ public static class RoomBuilder
         dir.GarmentSpawnParent = spawnParent.transform;
 
         var hudGo = new GameObject("HUD");
-        hudGo.AddComponent<HUD>();
+        var hud = hudGo.AddComponent<HUD>();
+        hud.TitleArt = LoadTitleArt();
+        hud.HeadingFont = LoadFont("LilitaOne-Regular");
+        hud.BodyFont = LoadFont("NunitoSans-Bold");
 
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene);
@@ -599,6 +608,86 @@ public static class RoomBuilder
         if (avatar != null) anim.avatar = avatar;
         anim.applyRootMotion = false;
         anim.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+    }
+
+    /// <summary>
+    /// The music rig. Clips are generated art like everything else here - three beds from
+    /// Stable Audio, looped with ffmpeg - and are looked up by name so a missing one
+    /// leaves the game silent rather than broken.
+    /// </summary>
+    /// <summary>
+    /// The title screen's key art. Imported as a sprite rather than a texture, because
+    /// uGUI will not draw it otherwise, and left uncompressed-ish at a sane size so the
+    /// lettering in the artwork stays crisp.
+    /// </summary>
+    static Sprite LoadTitleArt()
+    {
+        const string path = "Assets/Art/title_bg.png";
+        var imp = AssetImporter.GetAtPath(path) as TextureImporter;
+        if (imp != null && (imp.textureType != TextureImporterType.Sprite
+                            || imp.maxTextureSize != 2048
+                            || imp.mipmapEnabled))
+        {
+            imp.textureType = TextureImporterType.Sprite;
+            imp.spriteImportMode = SpriteImportMode.Single;
+            imp.maxTextureSize = 2048;
+            imp.mipmapEnabled = false;
+            imp.alphaIsTransparency = false;
+            imp.SaveAndReimport();
+        }
+
+        var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+        if (sprite == null) Debug.LogWarning("[RoomBuilder] no title art at " + path);
+        return sprite;
+    }
+
+    /// <summary>
+    /// A font from Assets/Fonts. Returns null if it is missing, and the HUD falls back to
+    /// the built-in legacy font rather than rendering nothing.
+    /// </summary>
+    static Font LoadFont(string name)
+    {
+        var font = AssetDatabase.LoadAssetAtPath<Font>($"Assets/Fonts/{name}.ttf");
+        if (font == null) Debug.LogWarning($"[RoomBuilder] missing font {name}");
+        return font;
+    }
+
+    static void BuildMusic()
+    {
+        var go = new GameObject("Music");
+        var mp = go.AddComponent<MusicPlayer>();
+        mp.TitleTrack = LoadMusic("title");
+        mp.DayTrack = LoadMusic("day");
+        mp.RushTrack = LoadMusic("rush");
+
+        if (mp.DayTrack == null)
+            Debug.LogWarning("[RoomBuilder] no music found in Assets/Audio/Music.");
+    }
+
+    static AudioClip LoadMusic(string name)
+    {
+        var path = $"Assets/Audio/Music/{name}.ogg";
+        var clip = AssetDatabase.LoadAssetAtPath<AudioClip>(path);
+        if (clip == null) return null;
+
+        // Compressed in memory, not decompressed on load: three 30s stereo beds
+        // decompressed up front is tens of megabytes of WebGL heap for no benefit.
+        var imp = AssetImporter.GetAtPath(path) as AudioImporter;
+        if (imp != null)
+        {
+            var settings = imp.defaultSampleSettings;
+            if (settings.loadType != AudioClipLoadType.CompressedInMemory
+                || settings.compressionFormat != AudioCompressionFormat.Vorbis)
+            {
+                settings.loadType = AudioClipLoadType.CompressedInMemory;
+                settings.compressionFormat = AudioCompressionFormat.Vorbis;
+                settings.quality = 0.5f;
+                imp.defaultSampleSettings = settings;
+                imp.SaveAndReimport();
+                clip = AssetDatabase.LoadAssetAtPath<AudioClip>(path);
+            }
+        }
+        return clip;
     }
 
     static void BuildPlayer(Transform root, Material shirt, Material skin)

@@ -144,6 +144,12 @@ namespace LaundryMonster
             }
         }
 
+        /// <summary>
+        /// The colour this garment is currently drawn in. The HUD's carry chips use it so
+        /// what you are holding reads the same on the bar as it does in your arms.
+        /// </summary>
+        public Color DisplayColor { get; private set; } = Color.white;
+
         public void RefreshVisual()
         {
             if (_mat == null) return;
@@ -173,6 +179,7 @@ namespace LaundryMonster
                 }
             }
 
+            DisplayColor = c;
             _mat.color = c;
         }
 

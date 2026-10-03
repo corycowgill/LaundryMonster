@@ -209,6 +209,7 @@ namespace LaundryMonster
                     if (began && !_menuClaimed.Contains(id))
                     {
                         _menuClaimed.Add(id);
+                        GameInput.LastTapScreen = pos;
                         if ((pos - helpCentreScreen).sqrMagnitude <= helpRadiusScreen * helpRadiusScreen)
                             GameInput.TouchHelpFrame = Time.frameCount;
                         else
