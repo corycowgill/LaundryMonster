@@ -67,6 +67,50 @@ namespace LaundryMonster
 
         public bool IsSock => Kind == GarmentKind.Sock;
 
+        /// <summary>
+        /// Where this garment needs to go next, in two or three words.
+        ///
+        /// Knowing WHAT you are holding is only half the question - the useful half is
+        /// which bench it is for, and the answer depends on the state as much as the kind.
+        /// A lone sock goes to the drawer no matter how clean it is.
+        /// </summary>
+        public string NextStop
+        {
+            get
+            {
+                if (NeedsPartner) return "DRAWER";
+                switch (State)
+                {
+                    case GarmentState.Dirty:
+                    case GarmentState.Mildewed:  return "WASHER";
+                    case GarmentState.Wet:
+                    case GarmentState.Wrinkled:  return "DRYER";
+                    case GarmentState.CleanDry:  return "FOLD";
+                    case GarmentState.Folded:    return "CLOSET";
+                    default:                     return "BIN";
+                }
+            }
+        }
+
+        /// <summary>Colour of the station this is headed for, to match the badges.</summary>
+        public Color NextStopColor
+        {
+            get
+            {
+                if (NeedsPartner) return new Color(0.55f, 0.45f, 0.78f);      // drawer purple
+                switch (State)
+                {
+                    case GarmentState.Dirty:
+                    case GarmentState.Mildewed:  return new Color(0.176f, 0.549f, 0.941f); // washer blue
+                    case GarmentState.Wet:
+                    case GarmentState.Wrinkled:  return new Color(0.976f, 0.545f, 0.129f); // dryer orange
+                    case GarmentState.CleanDry:  return new Color(0.949f, 0.639f, 0.118f); // fold amber
+                    case GarmentState.Folded:    return new Color(0.208f, 0.780f, 0.349f); // closet green
+                    default:                     return new Color(0.6f, 0.6f, 0.62f);
+                }
+            }
+        }
+
         /// <summary>A lone sock cannot be folded or put away. That is the whole problem.</summary>
         public bool NeedsPartner => IsSock && !Paired;
 

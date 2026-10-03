@@ -168,6 +168,91 @@ namespace LaundryMonster
             return Sprite.Create(t, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f);
         }
 
+        // ---------- garment icons ----------
+
+        static readonly System.Collections.Generic.Dictionary<GarmentKind, Sprite> _icons =
+            new System.Collections.Generic.Dictionary<GarmentKind, Sprite>();
+
+        /// <summary>
+        /// A silhouette for each kind of laundry.
+        ///
+        /// Colour alone could not answer the question the player actually has - a red sock
+        /// and a red shirt were the same red square, and they go to completely different
+        /// places. A shape can be read at a glance and survives being small, which a word
+        /// does not.
+        /// </summary>
+        public static Sprite GarmentIcon(GarmentKind kind)
+        {
+            if (_icons.TryGetValue(kind, out var cached)) return cached;
+            var made = PolygonSprite(Outline(kind), 96);
+            _icons[kind] = made;
+            return made;
+        }
+
+        /// <summary>Points are 0..1 of the icon box, y up, traced in order.</summary>
+        static Vector2[] Outline(GarmentKind kind)
+        {
+            switch (kind)
+            {
+                // A t-shirt: shoulders, sleeves, straight body, neck notch.
+                case GarmentKind.Shirt:
+                    return Pts(0.28f,0.92f, 0.12f,0.78f, 0.02f,0.64f, 0.20f,0.50f,
+                               0.20f,0.06f, 0.80f,0.06f, 0.80f,0.50f, 0.98f,0.64f,
+                               0.88f,0.78f, 0.72f,0.92f, 0.62f,0.82f, 0.38f,0.82f);
+
+                // Waistband across the top, two legs below.
+                case GarmentKind.Pants:
+                    return Pts(0.20f,0.94f, 0.80f,0.94f, 0.80f,0.06f, 0.58f,0.06f,
+                               0.52f,0.58f, 0.48f,0.58f, 0.42f,0.06f, 0.20f,0.06f);
+
+                // A rectangle with a fringed hem, which is what makes it not a blanket.
+                case GarmentKind.Towel:
+                    return Pts(0.14f,0.92f, 0.86f,0.92f, 0.86f,0.20f, 0.78f,0.08f,
+                               0.70f,0.20f, 0.62f,0.08f, 0.54f,0.20f, 0.46f,0.08f,
+                               0.38f,0.20f, 0.30f,0.08f, 0.22f,0.20f, 0.14f,0.08f);
+
+                // Cuff and leg, then the foot turning off to the right.
+                case GarmentKind.Sock:
+                    return Pts(0.26f,0.94f, 0.56f,0.94f, 0.56f,0.36f, 0.92f,0.36f,
+                               0.92f,0.06f, 0.26f,0.06f);
+
+                // A dress: narrow shoulders flaring to a wide hem.
+                default:
+                    return Pts(0.38f,0.94f, 0.62f,0.94f, 0.74f,0.78f, 0.60f,0.66f,
+                               0.86f,0.06f, 0.14f,0.06f, 0.40f,0.66f, 0.26f,0.78f);
+            }
+        }
+
+        static Vector2[] Pts(params float[] xy)
+        {
+            var pts = new Vector2[xy.Length / 2];
+            for (int i = 0; i < pts.Length; i++) pts[i] = new Vector2(xy[i * 2], xy[i * 2 + 1]);
+            return pts;
+        }
+
+        /// <summary>Fill a normalised polygon into a sprite, supersampled so it is not jagged.</summary>
+        static Sprite PolygonSprite(Vector2[] norm, int size)
+        {
+            var pts = new Vector2[norm.Length];
+            for (int i = 0; i < norm.Length; i++) pts[i] = norm[i] * size;
+
+            var t = NewTex(size, size);
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    int hits = 0;
+                    for (int sy = 0; sy < 2; sy++)
+                        for (int sx = 0; sx < 2; sx++)
+                            if (InPolygon(new Vector2(x + 0.25f + sx * 0.5f, y + 0.25f + sy * 0.5f), pts))
+                                hits++;
+                    t.SetPixel(x, y, new Color(1f, 1f, 1f, hits / 4f));
+                }
+            }
+            t.Apply();
+            return Sprite.Create(t, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f);
+        }
+
         static bool InPolygon(Vector2 p, Vector2[] poly)
         {
             bool inside = false;

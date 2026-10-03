@@ -67,6 +67,9 @@ namespace LaundryMonster
         Image _holdFill;
         RectTransform _holdBar;
         readonly List<RectTransform> _carryChips = new List<RectTransform>();
+        readonly List<Image> _carryIcons = new List<Image>();
+        readonly List<Text> _carryDest = new List<Text>();
+        readonly List<Image> _carryDestBar = new List<Image>();
 
         // machines
         readonly List<LaundryMachine> _machines = new List<LaundryMachine>();
@@ -367,7 +370,7 @@ namespace LaundryMonster
         {
             _actionBar = UiKit.Card(parent, "ActionBar", UiKit.NavyBar, UiKit.NavyDeep, 7f);
             UiKit.Place(_actionBar, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                        new Vector2(0f, 44f), new Vector2(820f, 118f));
+                        new Vector2(0f, 44f), new Vector2(920f, 136f));
 
             _actionKey = Keycap(_actionBar, "E", 86f, 64f);
             UiKit.Place(_actionKey, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
@@ -376,29 +379,52 @@ namespace LaundryMonster
 
             _actionText = Body(_actionBar, "", 32, TextAnchor.MiddleLeft, UiKit.Cream);
             _actionText.rectTransform.offsetMin = new Vector2(142f, 0f);
-            _actionText.rectTransform.offsetMax = new Vector2(-300f, 0f);
+            _actionText.rectTransform.offsetMax = new Vector2(-460f, 0f);
 
             // Hold progress runs along the bottom edge of the bar.
             _holdBar = UiKit.Block(_actionBar, "HoldTrack", new Color(1f, 1f, 1f, 0.18f), UiKit.Bar).rectTransform;
-            UiKit.Place(_holdBar, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                        new Vector2(0f, 14f), new Vector2(760f, 12f));
+            UiKit.Place(_holdBar, new Vector2(0f, 0f), new Vector2(0f, 0f),
+                        new Vector2(28f, 12f), new Vector2(560f, 12f));
 
             _holdFill = UiKit.Block(_actionBar, "HoldFill", UiKit.Yellow, UiKit.Bar);
-            UiKit.Place(_holdFill.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                        new Vector2(0f, 14f), new Vector2(760f, 12f));
+            UiKit.Place(_holdFill.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 0f),
+                        new Vector2(28f, 12f), new Vector2(560f, 12f));
             _holdFill.type = Image.Type.Filled;
             _holdFill.fillMethod = Image.FillMethod.Horizontal;
             _holdFill.fillOrigin = 0;
             _holdBar.gameObject.SetActive(false);
             _holdFill.gameObject.SetActive(false);
 
-            // One chip per carry slot, filled left to right.
-            for (int i = 0; i < Tuning.CarryCapacity; i++)
+            // One chip per carry slot, filled left to right. Enough for the biggest the
+            // basket upgrade can make it, since capacity changes mid-run.
+            int slots = Tuning.CarryCapacity + Tuning.BasketCarryBonus;
+            for (int i = 0; i < slots; i++)
             {
-                var chip = UiKit.Card(_actionBar, "Carry", UiKit.CreamDim, UiKit.Navy, 4f,
+                var chip = UiKit.Card(_actionBar, "Carry", UiKit.Cream, UiKit.Navy, 4f,
                                       UiKit.Card9, false);
                 UiKit.Place(chip, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
-                            new Vector2(-28f - i * 96f, 2f), new Vector2(86f, 72f));
+                            new Vector2(-24f - i * 104f, 2f), new Vector2(96f, 96f));
+
+                // The silhouette answers "what am I holding".
+                var icon = UiKit.Block(chip, "Icon", UiKit.Navy, UiKit.GarmentIcon(GarmentKind.Shirt));
+                icon.type = Image.Type.Simple;
+                UiKit.Place(icon.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                            new Vector2(0f, -8f), new Vector2(54f, 54f));
+                _carryIcons.Add(icon);
+
+                // The strip answers "where does it go", which is the actually useful half.
+                var bar = UiKit.Block(chip, "DestBar", UiKit.Blue, UiKit.Card9);
+                UiKit.Place(bar.rectTransform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
+                            new Vector2(0f, 7f), new Vector2(84f, 26f));
+                _carryDestBar.Add(bar);
+
+                var dest = Body(bar.transform, "", 19, TextAnchor.MiddleCenter, UiKit.Cream);
+                dest.rectTransform.anchorMin = Vector2.zero;
+                dest.rectTransform.anchorMax = Vector2.one;
+                dest.rectTransform.offsetMin = Vector2.zero;
+                dest.rectTransform.offsetMax = Vector2.zero;
+                _carryDest.Add(dest);
+
                 _carryChips.Add(chip);
                 chip.gameObject.SetActive(false);
             }
@@ -1217,17 +1243,43 @@ namespace LaundryMonster
             SetActive(_holdFill.gameObject, hold || holding);
             _holdFill.fillAmount = _player.HoldProgress;
 
-            // One chip per carried garment, coloured by what it currently is.
+            // One chip per carried garment: what it is, what state it is in, and which
+            // bench it is for. The icon is tinted with the garment's own colour so a chip
+            // and the thing in your arms read as the same object.
             for (int i = 0; i < _carryChips.Count; i++)
             {
                 bool used = i < _player.Carried.Count;
                 SetActive(_carryChips[i].gameObject, used);
                 if (!used) continue;
 
-                var g = _player.Carried[i];
-                UiKit.SetCardColors(_carryChips[i],
-                                    g != null ? g.DisplayColor : UiKit.CreamDim, UiKit.Navy);
+                // Reverse the mapping so the first thing you picked up sits leftmost:
+                // the chips are laid out from the right edge, but they are read from the left.
+                var g = _player.Carried[_player.Carried.Count - 1 - i];
+                if (g == null) { SetActive(_carryChips[i].gameObject, false); continue; }
+
+                _carryIcons[i].sprite = UiKit.GarmentIcon(g.Kind);
+                _carryIcons[i].color = Readable(g.DisplayColor);
+
+                var stop = g.NextStopColor;
+                _carryDest[i].text = g.NextStop;
+                _carryDestBar[i].color = stop;
+
+                // A garment running out of time gets a flashing outline, so the chip says
+                // which one to deal with as well as where it goes.
+                bool urgent = g.IsDecaying && g.DecayFraction > 0.6f;
+                UiKit.SetCardColors(_carryChips[i], UiKit.Cream,
+                                    urgent ? Color.Lerp(stop, UiKit.Red, UiKit.Pulse(9f)) : stop);
             }
+        }
+
+        /// <summary>
+        /// Keep a garment's own colour but force it dark enough to read as a silhouette on
+        /// cream. Whites and pale creams are real laundry colours and would vanish.
+        /// </summary>
+        static Color Readable(Color c)
+        {
+            float lum = c.r * 0.299f + c.g * 0.587f + c.b * 0.114f;
+            return lum > 0.55f ? Color.Lerp(c, UiKit.Navy, (lum - 0.55f) / 0.45f * 0.8f) : c;
         }
 
         void UpdateFlash()

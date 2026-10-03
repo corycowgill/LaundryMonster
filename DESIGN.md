@@ -44,6 +44,22 @@ turn into inside the drum: mildewed goes back in a washer, wrinkled back in a dr
 Machine state tracks *the cycle*, not the garments, precisely so that a load cannot
 become stuck by spoiling where it sits.
 
+## 2w. Reading your own hands
+
+The carry chips on the action bar answer two questions, because knowing what you are
+holding is only half of one:
+
+* **what it is** — a generated silhouette per garment kind (shirt, pants, towel, sock,
+  dress), tinted with that garment's own colour so the chip and the thing in your arms
+  read as the same object. Colour alone could not do this: a red sock and a red shirt
+  were the same red square and they go to opposite ends of the room.
+* **where it goes** — a coloured strip naming the bench, matched to that station's own
+  colour: WASHER blue, DRYER orange, FOLD amber, CLOSET green, DRAWER purple. The answer
+  depends on state as much as kind, and a lone sock goes to the drawer however clean it is.
+
+A garment running out of time flashes its chip outline, so the strip also says *which*
+one to deal with first.
+
 ## 2x. Upgrades
 
 A day worth at least one star offers a choice of three. Each is a **trade**, because
