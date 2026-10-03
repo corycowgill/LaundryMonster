@@ -67,6 +67,11 @@ namespace LaundryMonster
 
         void Update()
         {
+            // Nothing ticks outside active play: not cycles, not decay, not
+            // the Monster. A results screen is not playtime.
+            var dir = GameDirector.Instance;
+            if (dir != null && !dir.IsRunning) return;
+
             if (Overflowing && GameDirector.Instance != null)
             {
                 GameDirector.Instance.AddMonster(

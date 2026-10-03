@@ -13,7 +13,15 @@ namespace LaundryMonster
     /// </summary>
     public class SockStation : Interactable
     {
+        /// <summary>Partner confirmed gone to the Void. These make rags.</summary>
         public readonly List<Garment> Orphans = new List<Garment>();
+
+        /// <summary>Dropped off, partner still out there somewhere. These can still match.</summary>
+        public readonly List<Garment> Waiting = new List<Garment>();
+
+        /// <summary>Matched here and waiting to be collected.</summary>
+        public readonly List<Garment> ReadyPairs = new List<Garment>();
+
         public int Rags;
 
         public override string Label => "Sock Drawer";
@@ -22,9 +30,12 @@ namespace LaundryMonster
         {
             get
             {
-                string s = Orphans.Count + "/" + Tuning.OrphanDrawerCapacity + " orphans";
-                if (Rags > 0) s += ", " + Rags + " rag" + (Rags == 1 ? "" : "s");
-                return s;
+                var parts = new List<string>();
+                if (ReadyPairs.Count > 0) parts.Add(ReadyPairs.Count + " pair ready");
+                if (Waiting.Count > 0) parts.Add(Waiting.Count + " waiting");
+                parts.Add(Orphans.Count + "/" + Tuning.OrphanDrawerCapacity + " orphans");
+                if (Rags > 0) parts.Add(Rags + " rag" + (Rags == 1 ? "" : "s"));
+                return string.Join(", ", parts);
             }
         }
 
@@ -111,25 +122,100 @@ namespace LaundryMonster
 
         public override string ActionPrompt(PlayerController p)
         {
-            if (LoneSocksCarried(p) > 0) return "put lone socks in the drawer";
+            if (LoneSocksCarried(p) > 0)
+                return WouldMatch(p) ? "match it with the one waiting here"
+                                     : "leave the sock here for its partner";
+            if (ReadyPairs.Count > 0 && p.FreeSlots > 0) return "pick up a matched pair";
             if (Rags > 0 && AnyLint()) return "use a dust rag on every lint trap";
             return "";
+        }
+
+        /// <summary>A carried lone sock whose partner is already sitting on the drawer.</summary>
+        bool WouldMatch(PlayerController p)
+        {
+            foreach (var c in p.Carried)
+            {
+                if (c == null || !c.NeedsPartner || c.Orphan) continue;
+                foreach (var w in Waiting)
+                    if (w != null && w.PairId == c.PairId) return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Join two socks into one pair object. The survivor becomes the pair and is
+        /// scaled up; the other is absorbed, the same as matching in hand.
+        /// </summary>
+        Garment MakePair(Garment keep, Garment absorb)
+        {
+            keep.Paired = true;
+            keep.transform.localScale = new Vector3(0.40f, 0.13f, 0.34f);
+            GameDirector.Instance?.NoteSockMerged(absorb);
+            if (absorb != null) Destroy(absorb.gameObject);
+            SfxPlayer.Play(Sfx.Fold, 1f, 1.25f);
+            return keep;
         }
 
         public override void Interact(PlayerController p)
         {
             if (LoneSocksCarried(p) > 0)
             {
+                bool matched = false;
                 for (int i = p.Carried.Count - 1; i >= 0; i--)
                 {
                     var g = p.Carried[i];
-                    if (!g.NeedsPartner) continue;
+                    if (g == null || !g.NeedsPartner) continue;
+
                     p.Release(g);
-                    g.gameObject.SetActive(false);
                     g.DecayMultiplier = 0f;
-                    Orphans.Add(g);
+
+                    // Known orphan: straight to the drawer, it will become a rag.
+                    if (g.Orphan)
+                    {
+                        g.gameObject.SetActive(false);
+                        Orphans.Add(g);
+                        continue;
+                    }
+
+                    // Does its partner happen to be waiting here already?
+                    Garment partner = null;
+                    foreach (var w in Waiting)
+                        if (w != null && w.PairId == g.PairId) { partner = w; break; }
+
+                    if (partner != null)
+                    {
+                        Waiting.Remove(partner);
+                        partner.gameObject.SetActive(false);
+                        ReadyPairs.Add(MakePair(partner, g));
+                        matched = true;
+                    }
+                    else
+                    {
+                        g.gameObject.SetActive(false);
+                        Waiting.Add(g);
+                    }
                 }
-                SfxPlayer.Play(Sfx.Drop, 0.9f);
+
+                if (matched)
+                    GameDirector.Instance?.Flash("a matching pair. savour it.",
+                                                 new Color(0.7f, 0.9f, 0.75f));
+                else
+                    SfxPlayer.Play(Sfx.Drop, 0.9f);
+                return;
+            }
+
+            // Collect finished pairs, as many as will fit.
+            if (ReadyPairs.Count > 0 && p.FreeSlots > 0)
+            {
+                while (ReadyPairs.Count > 0 && p.FreeSlots > 0)
+                {
+                    var pair = ReadyPairs[0];
+                    ReadyPairs.RemoveAt(0);
+                    if (pair == null) continue;
+                    pair.gameObject.SetActive(true);
+                    p.Take(pair);
+                }
+                SfxPlayer.Play(Sfx.PickUp, 0.9f);
                 return;
             }
 
@@ -153,6 +239,23 @@ namespace LaundryMonster
 
         void Update()
         {
+            // Nothing ticks outside active play: not cycles, not decay, not
+            // the Monster. A results screen is not playtime.
+            var dir = GameDirector.Instance;
+            if (dir != null && !dir.IsRunning) return;
+
+            // A sock waiting here becomes a confirmed orphan the moment the Void takes
+            // its partner. Sweeping here keeps VoidSock from needing to know about the
+            // drawer's internals.
+            for (int i = Waiting.Count - 1; i >= 0; i--)
+            {
+                var w = Waiting[i];
+                if (w == null) { Waiting.RemoveAt(i); continue; }
+                if (!w.Orphan) continue;
+                Waiting.RemoveAt(i);
+                Orphans.Add(w);
+            }
+
             if (Overflowing && GameDirector.Instance != null)
                 GameDirector.Instance.AddMonster(
                     Tuning.MonsterPerChairOverflowSecond * Time.deltaTime *

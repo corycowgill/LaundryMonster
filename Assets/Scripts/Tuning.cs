@@ -1,3 +1,5 @@
+using UnityEngine;
+
 namespace LaundryMonster
 {
     public enum GarmentKind { Shirt, Pants, Towel, Sock, Delicate }
@@ -102,6 +104,27 @@ namespace LaundryMonster
         public const float MonsterPerChairOverflowSecond = 0.5f;
         public const float MonsterMax = 30f;
 
+        // --- closing out the day ---
+        //
+        // Laundry left anywhere at closing - hamper, machine, chair, your arms - feeds the
+        // Monster. Without this, doing nothing was free: dirty garments never decay, so an
+        // idle day spoiled nothing, grew nothing, and was wiped clean at the boundary. A
+        // player could idle forever.
+        //
+        // A garment that already fed the Monster by spoiling is not charged twice.
+        public const float MonsterPerUnfinished = 0.75f;
+        public const float MonsterClosingCap = 8f;
+
+        // --- fairness: when the last laundry may arrive ---
+        //
+        // The last garment of the day has to be finishable by normal play, so arrivals
+        // stop one full pipeline before closing: a wash, a dry, a fold, and enough walking
+        // to get between them. What is left after that is the finishing period, and the
+        // HUD says so.
+        public const float TravelAllowance = 20f;
+
+        public static float FinishWindow => WashCycle + DryCycle + FoldHold + TravelAllowance;
+
         // The Monster IS the hamper: dirty laundry is pulled off it, so it is big, and
         // it visibly shrinks as you clear the backlog.
         public const float MonsterMinScale = 1.30f;
@@ -111,6 +134,16 @@ namespace LaundryMonster
         public static float DayLength(int day) => DayBaseLength + DayLengthPerExtraDay * (day - 1);
 
         public static int GarmentsForDay(int day) => SpawnBase + SpawnPerDay * day;
+
+        /// <summary>
+        /// How long arrivals keep coming. Never less than a third of the day, so a short
+        /// day cannot collapse into "everything arrives at once".
+        /// </summary>
+        public static float ArrivalWindow(int day)
+        {
+            float len = DayLength(day);
+            return Mathf.Max(len * 0.34f, len - FinishWindow);
+        }
 
         /// <summary>Delivery target in points for the day.</summary>
         public static float TargetForDay(int day) => GarmentsForDay(day) * 0.8f;

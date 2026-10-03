@@ -38,6 +38,12 @@ namespace LaundryMonster
         /// <summary>Socks only: its partner went to the Void. It can never be matched.</summary>
         public bool Orphan;
 
+        /// <summary>
+        /// This garment has already fed the Monster once, by spoiling or by being counted
+        /// at closing. It is never charged twice.
+        /// </summary>
+        public bool MonsterCharged;
+
         /// <summary>This garment's own colour. State modulates it rather than replacing it,
         /// so a red shirt stays recognisably a red shirt whether it is dirty, wet or folded.</summary>
         public Color BaseColor = Color.white;

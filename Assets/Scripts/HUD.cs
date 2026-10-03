@@ -709,7 +709,18 @@ namespace LaundryMonster
                 ? Color.Lerp(UiKit.Navy, UiKit.Red, 0.4f + 0.6f * UiKit.Pulse(9f))
                 : UiKit.Navy;
 
-            _secondsText.text = Mathf.CeilToInt(left) + "s left";
+            // The finishing period is a promise: nothing more is coming, so everything
+            // still out there can in principle be finished.
+            if (_dir.ArrivalsDone && _dir.CurrentPhase == Phase.Playing)
+            {
+                _secondsText.text = "LAST LOAD - no more arrivals";
+                _secondsText.color = UiKit.Orange;
+            }
+            else
+            {
+                _secondsText.text = Mathf.CeilToInt(left) + "s left";
+                _secondsText.color = UiKit.Navy;
+            }
         }
 
         void UpdateDelivered()
@@ -918,6 +929,14 @@ namespace LaundryMonster
             _flashText.color = c;
         }
 
+        /// <summary>One line explaining what the closing charge was for, or nothing.</summary>
+        string ClosingLine()
+        {
+            if (_dir.UnfinishedAtClose <= 0) return "";
+            return "\n\n" + _dir.UnfinishedAtClose + " left unfinished"
+                 + "  ->  Monster +" + _dir.ClosingPenalty.ToString("0.#");
+        }
+
         void UpdateSummary()
         {
             bool over = _dir.CurrentPhase == Phase.RunOver;
@@ -943,7 +962,7 @@ namespace LaundryMonster
                     "score      " + _dir.Score.ToString("0.#") + " / " + _dir.Target.ToString("0.#") + "\n" +
                     "wrinkled   " + _dir.WrinkledCount + "\n" +
                     "mildewed   " + _dir.MildewedCount + "\n" +
-                    "socks lost " + _dir.VoidedSocks;
+                    "socks lost " + _dir.VoidedSocks + ClosingLine();
                 _summaryAction.text = GameInput.ConfirmGlyph + "   start day " + (_dir.Day + 1);
             }
         }

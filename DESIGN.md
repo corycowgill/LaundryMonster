@@ -39,6 +39,36 @@ Failure states: **Mildewed** (wet too long), **Wrinkled** (dry too long), **Shru
 (delicates dried hot), **Dyed** (mixed with the Red Sock), **Ruined** (pocket disaster)
 → trash, and ruined garments feed the Monster.
 
+Spoiling is never a dead end. A finished cycle stays unloadable whatever the clothes
+turn into inside the drum: mildewed goes back in a washer, wrinkled back in a dryer.
+Machine state tracks *the cycle*, not the garments, precisely so that a load cannot
+become stuck by spoiling where it sits.
+
+## 2a. Fairness rules
+
+These exist because the game broke each of them at some point, and each break made the
+game unfair rather than hard.
+
+**Arrivals stop before closing.** The last garment of the day arrives one full pipeline
+before the end — a wash, a dry, a fold and `TravelAllowance` seconds of walking. What
+remains is the *finishing period*, and the HUD says `LAST LOAD - no more arrivals`.
+
+**Unfinished laundry is charged.** Everything still lying around at closing feeds the
+Monster, capped at `MonsterClosingCap`. Dirty laundry never decays, so without this an
+idle day cost nothing and the day boundary quietly destroyed the evidence — a player
+could do nothing forever. A garment that already fed the Monster by spoiling is not
+charged twice.
+
+**Socks match without both in hand.** Carry capacity can fall to one permanently (the
+AirPods disaster). Socks can be left at the drawer and matched when their partner
+arrives, so that penalty makes matching slower rather than impossible. A sock *waiting*
+for its partner is tracked separately from a confirmed *orphan*, and both socks of a
+pair share a colour.
+
+**Nothing ticks outside play.** Machines, decay, the Chair and the sock drawer all run
+their own update, and all of them are gated on `GameDirector.IsRunning`. Reading the day
+summary, the help page or a pause screen does not advance the game.
+
 ## 3. The five systems
 
 ### 3.1 The Wrinkle Clock — *the core mechanic*

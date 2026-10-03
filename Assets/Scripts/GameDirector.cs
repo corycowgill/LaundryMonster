@@ -113,9 +113,28 @@ namespace LaundryMonster
         int _spawnIndex;
         Material _monsterMat;
 
-        public bool AcceptsInput => CurrentPhase == Phase.Playing;
+        /// <summary>Paused by the player. Separate from phase so it can be toggled back.</summary>
+        public bool Paused { get; private set; }
+
+        public void TogglePause() => Paused = !Paused;
+        public void SetPaused(bool p) => Paused = p;
+
+        /// <summary>
+        /// The single authority for "is the world ticking".
+        ///
+        /// Machines, the Chair and the sock drawer all run their own Update, and all of
+        /// them used to keep running during the help screen, the day summary and game
+        /// over - so a dryer finished, laundry wrinkled and an overflowing Chair kept
+        /// feeding the Monster while the player was reading a results screen.
+        /// </summary>
+        public bool IsRunning => CurrentPhase == Phase.Playing && !Paused;
+
+        public bool AcceptsInput => CurrentPhase == Phase.Playing && !Paused;
         public float Target => Tuning.TargetForDay(Day);
         public float TimeLeft => Mathf.Max(0f, DayLength - DayTimer);
+
+        /// <summary>No more laundry is coming; what is left is the finishing period.</summary>
+        public bool ArrivalsDone => _spawnIndex >= _spawnTimes.Count;
 
         void Awake()
         {
@@ -195,18 +214,29 @@ namespace LaundryMonster
             foreach (var st in Object.FindObjectsByType<SockStation>())
             {
                 st.Orphans.Clear();
+                st.Waiting.Clear();
+                st.ReadyPairs.Clear();
                 if (day == 1) st.Rags = 0;
             }
             int count = Tuning.GarmentsForDay(day);
+            // Arrivals stop one full pipeline before the end, so the last garment of the
+            // day can actually be washed, dried, folded and delivered. What remains is the
+            // finishing period.
+            float window = Tuning.ArrivalWindow(day);
             for (int i = 0; i < count; i++)
-                _spawnTimes.Add(DayLength * 0.70f * (i / (float)Mathf.Max(1, count - 1)));
+                _spawnTimes.Add(window * (i / (float)Mathf.Max(1, count - 1)));
         }
 
         void Update()
         {
             if (FlashTimer > 0f) FlashTimer -= Time.deltaTime;
 
-            if (CurrentPhase == Phase.Playing) { TickDay(); return; }
+            if (CurrentPhase == Phase.Playing)
+            {
+                if (PausePressed()) TogglePause();
+                if (!Paused) TickDay();
+                return;
+            }
 
             // Every scheme, not just the keyboard. This used to return early when
             // Keyboard.current was null, which made the title screen a dead end on a
@@ -278,6 +308,17 @@ namespace LaundryMonster
             var hud = Object.FindAnyObjectByType<HUD>();
             if (hud != null) hud.RewindCredits();
             CurrentPhase = Phase.Credits;
+        }
+
+        /// <summary>Pause: Escape or P, Start on a pad, or the on-screen pause button.</summary>
+        static bool PausePressed()
+        {
+            var kb = UnityEngine.InputSystem.Keyboard.current;
+            if (kb != null && (kb.escapeKey.wasPressedThisFrame || kb.pKey.wasPressedThisFrame))
+                return true;
+            var gp = UnityEngine.InputSystem.Gamepad.current;
+            if (gp != null && gp.startButton.wasPressedThisFrame) return true;
+            return GameInput.PauseTapped();
         }
 
         static bool TutorialPressed()
@@ -385,10 +426,43 @@ namespace LaundryMonster
             SfxPlayer.Play(Sfx.Tick, Mathf.Lerp(0.25f, 0.6f, urgency), Mathf.Lerp(0.9f, 1.5f, urgency));
         }
 
+        /// <summary>Unfinished garments counted at the last closing, for the summary.</summary>
+        public int UnfinishedAtClose;
+        public float ClosingPenalty;
+
+        /// <summary>
+        /// Charge for everything still lying around, then let the day be cleared.
+        ///
+        /// Without this the day boundary was an amnesty: dirty laundry never decays, so an
+        /// idle day spoiled nothing and grew nothing, and BeginDay quietly destroyed the
+        /// evidence. A player could do nothing forever and never lose.
+        ///
+        /// A garment that already fed the Monster by spoiling is not charged again - it
+        /// has been paid for - and the total is capped so one terrible day cannot end a
+        /// run outright.
+        /// </summary>
+        void ChargeForUnfinished()
+        {
+            int counted = 0;
+            foreach (var g in _all)
+            {
+                if (g == null || g.MonsterCharged) continue;
+                g.MonsterCharged = true;
+                counted++;
+            }
+
+            UnfinishedAtClose = counted;
+            ClosingPenalty = Mathf.Min(counted * Tuning.MonsterPerUnfinished,
+                                       Tuning.MonsterClosingCap);
+            if (ClosingPenalty > 0f) AddMonster(ClosingPenalty);
+        }
+
         void EndDay()
         {
             CurrentPhase = Phase.DaySummary;
             SfxPlayer.Play(Sfx.DayEnd, 0.9f);
+
+            ChargeForUnfinished();
 
             RunScore += Score;
             RunDelivered += Delivered;
@@ -400,6 +474,9 @@ namespace LaundryMonster
             else Stars = 0;
 
             RunStars += Stars;
+
+            // The closing charge can be what finally finishes a run.
+            if (Monster >= Tuning.MonsterMax) { EndRun(); return; }
 
             // Earning a star is worth a cheer; scraping through on zero is not.
             if (Stars > 0)
@@ -418,9 +495,20 @@ namespace LaundryMonster
             // Socks arrive two at a time, sharing a pair id. They rarely leave that way.
             if (kind == GarmentKind.Sock)
             {
+                // Both socks of a pair share a colour. You match socks by looking at
+                // them, so two socks that belong together have to look like they do.
                 int pair = _nextPairId++;
-                MakeGarment(kind).PairId = pair;
-                MakeGarment(kind).PairId = pair;
+                var colour = Garment.Palette[Random.Range(0, Garment.Palette.Length)];
+
+                var first = MakeGarment(kind);
+                first.PairId = pair;
+                first.BaseColor = colour;
+                first.RefreshVisual();
+
+                var second = MakeGarment(kind);
+                second.PairId = pair;
+                second.BaseColor = colour;
+                second.RefreshVisual();
                 return;
             }
             MakeGarment(kind);
@@ -497,6 +585,9 @@ namespace LaundryMonster
 
         public void OnGarmentSpoiled(Garment g, GarmentState newState)
         {
+            // Spoiling is the charge for this garment. Closing will not bill it again.
+            if (g != null) g.MonsterCharged = true;
+
             if (newState == GarmentState.Wrinkled)
             {
                 WrinkledCount++;

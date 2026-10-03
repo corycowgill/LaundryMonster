@@ -58,9 +58,20 @@ namespace LaundryMonster
         GarmentState OutputState =>
             MachineMode == Mode.Washer ? GarmentState.Wet : GarmentState.CleanDry;
 
+        /// <summary>
+        /// Set when a cycle runs to completion, cleared when the drum is loaded or started.
+        ///
+        /// This is deliberately NOT derived from what the garments currently are. It used
+        /// to be `Contents[0].State == OutputState`, which meant a finished load that then
+        /// mildewed or wrinkled in the drum stopped counting as finished - the unload
+        /// prompt vanished and the laundry was stuck in the machine for the rest of the
+        /// run. A cycle either completed or it did not; what the clothes did afterwards is
+        /// a separate question.
+        /// </summary>
+        public bool CycleComplete { get; private set; }
+
         /// <summary>True when the cycle has finished and the contents are waiting to be taken out.</summary>
-        public bool HasFinishedLoad =>
-            !Running && Contents.Count > 0 && Contents[0].State == OutputState;
+        public bool HasFinishedLoad => !Running && Contents.Count > 0 && CycleComplete;
 
         bool HasUnstartedLoad
         {
@@ -116,6 +127,7 @@ namespace LaundryMonster
                     Contents.RemoveAt(0);
                     p.Take(g);
                 }
+                if (Contents.Count == 0) CycleComplete = false;
                 UpdateBar();
                 return;
             }
@@ -130,6 +142,7 @@ namespace LaundryMonster
 
                 p.Release(g);
                 Contents.Add(g);
+                CycleComplete = false;
                 g.DecayMultiplier = 1f;
                 g.gameObject.SetActive(false);
                 loaded = true;
@@ -317,6 +330,7 @@ namespace LaundryMonster
             }
 
             Running = true;
+            CycleComplete = false;
             Timer = 0f;
             Nag(Sfx.Start, 0.7f);
             foreach (var g in Contents) g.DecayMultiplier = 0f; // nothing decays mid-cycle
@@ -355,6 +369,11 @@ namespace LaundryMonster
 
         void Update()
         {
+            // Nothing ticks outside active play: not cycles, not decay, not
+            // the Monster. A results screen is not playtime.
+            var dir = GameDirector.Instance;
+            if (dir != null && !dir.IsRunning) return;
+
             if (OfflineTimer > 0f)
             {
                 OfflineTimer -= Time.deltaTime;
@@ -369,6 +388,7 @@ namespace LaundryMonster
                 {
                     Running = false;
                     Timer = 0f;
+                    CycleComplete = true;
                     foreach (var g in Contents)
                     {
                         g.SetState(OutputState);

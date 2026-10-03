@@ -23,13 +23,23 @@ Verified in Play mode, not assumed.
 | Monster grows from neglect | working |
 | pocket roulette | working - tap to gamble, hold to check |
 | lint traps | working - debt that survives the day, and burns |
-| socks / the Sock Void | working - pairs, orphans, dust rags |
+| socks / the Sock Void | working - match in hand, or leave a sock at the drawer for its partner |
+| pause | working - Esc/P, Start, or the on-screen button; the world stops |
+| closing penalty | working - unfinished laundry feeds the Monster at the end of the day |
 | darks/whites separation | not built |
 | audio | working - synthesised in code, no sound files |
 | art | AI-generated: FLUX textures + TRELLIS 3D models for machines, hamper, chair, closet |
 
-Controls: WASD/arrows or left stick to move. E to interact - tap and hold do
-different things at a washer. SPACE to advance at the day summary.
+Controls adapt to the device you are using, and the HUD names the right button.
+
+| | keyboard | Xbox pad | touch |
+|---|---|---|---|
+| move | WASD / arrows | left stick or d-pad | drag the left side |
+| interact | E (tap and hold differ) | A | the ACT button |
+| confirm | Space / Enter | A / Start | tap |
+| help | H | Y | the ? button |
+| pause | Esc / P | Start | the pause button |
+| tutorial / credits | T / C | LB / RB | the title buttons |
 
 ## Project facts
 

@@ -28,13 +28,16 @@ namespace LaundryMonster
         [Tooltip("Radius of the front-end help button, in reference-resolution units.")]
         public float HelpRadius = 85f;
 
+        [Tooltip("Radius of the in-game pause button, in reference-resolution units.")]
+        public float PauseRadius = 62f;
+
         const float RefWidth = 1920f;
         const float RefHeight = 1080f;
 
         Canvas _canvas;
         CanvasScaler _scaler;
-        RectTransform _stickRing, _stickKnob, _actButton, _helpButton;
-        Text _actLabel, _helpLabel;
+        RectTransform _stickRing, _stickKnob, _actButton, _helpButton, _pauseButton;
+        Text _actLabel, _helpLabel, _pauseLabel;
         Sprite _disc;
 
         GameDirector _dir;
@@ -82,6 +85,10 @@ namespace LaundryMonster
             _helpButton = MakeDisc(go.transform, "Help", HelpRadius * 2f,
                                    new Color(1f, 1f, 1f, 0.16f));
             _helpLabel = MakeLabel(_helpButton, "?", 72);
+
+            _pauseButton = MakeDisc(go.transform, "Pause", PauseRadius * 2f,
+                                    new Color(1f, 1f, 1f, 0.20f));
+            _pauseLabel = MakeLabel(_pauseButton, "II", 44);
 
             SetVisible(false);
         }
@@ -171,6 +178,8 @@ namespace LaundryMonster
             float actRadiusScreen = ActRadius * scale * 1.15f;   // a little forgiveness
             Vector2 helpCentreScreen = HelpCentre() * scale;
             float helpRadiusScreen = HelpRadius * scale * 1.25f;
+            Vector2 pauseCentreScreen = PauseCentre() * scale;
+            float pauseRadiusScreen = PauseRadius * scale * 1.3f;
 
             bool any = false;
             bool moveStillDown = false;
@@ -215,6 +224,14 @@ namespace LaundryMonster
                         else
                             GameInput.TouchConfirmFrame = Time.frameCount;
                     }
+                    continue;
+                }
+
+                // --- pause, which is a tap rather than a hold ---
+                if (began && (pos - pauseCentreScreen).sqrMagnitude
+                             <= pauseRadiusScreen * pauseRadiusScreen)
+                {
+                    GameInput.TouchPauseFrame = Time.frameCount;
                     continue;
                 }
 
@@ -285,6 +302,9 @@ namespace LaundryMonster
         Vector2 ActCentre() => new Vector2(RefWidth - ActRadius - 110f, ActRadius + 110f);
         Vector2 HelpCentre() => new Vector2(RefWidth - HelpRadius - 60f, HelpRadius + 60f);
 
+        /// <summary>Bottom left, well away from the stick and the ACT button.</summary>
+        Vector2 PauseCentre() => new Vector2(PauseRadius + 46f, RefHeight - PauseRadius - 300f);
+
         void SetVisible(bool on)
         {
             if (_stickRing == null) return;
@@ -300,6 +320,9 @@ namespace LaundryMonster
 
             _helpButton.gameObject.SetActive(on && !playing);
             if (on && !playing) _helpButton.anchoredPosition = HelpCentre();
+
+            _pauseButton.gameObject.SetActive(on && playing);
+            if (on && playing) _pauseButton.anchoredPosition = PauseCentre();
         }
     }
 }

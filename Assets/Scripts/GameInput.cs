@@ -29,6 +29,7 @@ namespace LaundryMonster
         internal static int TouchConfirmFrame = -100;
         internal static int TouchHelpFrame = -100;
         internal static int TouchBackFrame = -100;
+        internal static int TouchPauseFrame = -100;
         internal static bool TouchPresent;
 
         /// <summary>Screen position of the most recent menu tap, for hit-testing buttons.</summary>
@@ -150,6 +151,9 @@ namespace LaundryMonster
                                || gp.selectButton.wasPressedThisFrame)) return true;
             return Claim(ref TouchBackFrame);
         }
+
+        /// <summary>The on-screen pause button was tapped.</summary>
+        public static bool PauseTapped() => Claim(ref TouchPauseFrame);
 
         /// <summary>Anything at all, for skipping the intro.</summary>
         public static bool AnyPressed()
