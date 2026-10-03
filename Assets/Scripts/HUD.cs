@@ -56,7 +56,7 @@ namespace LaundryMonster
         Vector3 _popWorld;
 
         // bottom left
-        Text _monsterLabel, _backlogText;
+        Text _monsterLabel, _backlogText, _monsterCaption;
         readonly List<Image> _monsterSegs = new List<Image>();
 
         // the snatch warning, pinned over The Chair
@@ -102,7 +102,7 @@ namespace LaundryMonster
         readonly List<Text> _pickName = new List<Text>();
         readonly List<Text> _pickBody = new List<Text>();
         readonly List<Text> _pickKey = new List<Text>();
-        readonly List<Rect> _pickRects = new List<Rect>();
+
         Text _ownedStrip, _sprayText;
         RectTransform _sprayChip;
 
@@ -238,32 +238,40 @@ namespace LaundryMonster
 
         void BuildDayCard(Transform parent)
         {
+            // The day used to be 392x226 and printed the time twice, once as a clock
+            // and once as "215s left" underneath it. One clock, in a card two thirds
+            // the height, leaves the room visible behind it.
             var card = UiKit.Card(parent, "DayCard", UiKit.Cream, UiKit.Navy, 7f);
             UiKit.Place(card, new Vector2(0f, 1f), new Vector2(0f, 1f),
-                        new Vector2(36f, -30f), new Vector2(392f, 226f));
+                        new Vector2(28f, -24f), new Vector2(300f, 150f));
 
-            _dayLabel = Head(card, "DAY 1", 44, TextAnchor.UpperLeft);
-            _dayLabel.rectTransform.offsetMin = new Vector2(34f, 0f);
-            _dayLabel.rectTransform.offsetMax = new Vector2(-24f, -18f);
+            _dayLabel = Head(card, "DAY 1", 28, TextAnchor.UpperLeft);
+            _dayLabel.rectTransform.offsetMin = new Vector2(24f, 0f);
+            _dayLabel.rectTransform.offsetMax = new Vector2(-20f, -12f);
 
-            _clockText = Head(card, "02:00", 82, TextAnchor.UpperLeft);
-            _clockText.rectTransform.offsetMin = new Vector2(30f, 0f);
-            _clockText.rectTransform.offsetMax = new Vector2(-24f, -58f);
+            _clockText = Head(card, "02:00", 58, TextAnchor.UpperLeft);
+            _clockText.rectTransform.offsetMin = new Vector2(22f, 0f);
+            _clockText.rectTransform.offsetMax = new Vector2(-20f, -44f);
 
             var track = UiKit.Block(card, "Track", UiKit.Grey, UiKit.Bar);
             UiKit.Place(track.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 0f),
-                        new Vector2(32f, 54f), new Vector2(326f, 22f));
+                        new Vector2(24f, 18f), new Vector2(252f, 14f));
 
             _clockFill = UiKit.Block(card, "Fill", UiKit.Blue, UiKit.Bar);
             UiKit.Place(_clockFill.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 0f),
-                        new Vector2(32f, 54f), new Vector2(326f, 22f));
+                        new Vector2(24f, 18f), new Vector2(252f, 14f));
             _clockFill.type = Image.Type.Filled;
             _clockFill.fillMethod = Image.FillMethod.Horizontal;
             _clockFill.fillOrigin = 0;
 
-            _secondsText = Body(card, "", 26, TextAnchor.LowerLeft);
-            _secondsText.rectTransform.offsetMin = new Vector2(34f, 18f);
-            _secondsText.rectTransform.offsetMax = new Vector2(-24f, 0f);
+            // Kept for the one line it is still worth spending a row on, and parked
+            // outside the card so the card does not have to be tall enough for it.
+            _secondsText = Body(parent, "", 22, TextAnchor.UpperLeft, UiKit.Orange);
+            UiKit.Place(_secondsText.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f),
+                        new Vector2(32f, -180f), new Vector2(380f, 28f));
+            var lo = _secondsText.gameObject.AddComponent<Outline>();
+            lo.effectColor = UiKit.NavyDeep;
+            lo.effectDistance = new Vector2(2f, -2f);
         }
 
         // ---------- top centre: what to do next ----------
@@ -308,25 +316,29 @@ namespace LaundryMonster
         {
             var card = UiKit.Card(parent, "Delivered", UiKit.Cream, UiKit.Navy, 7f);
             UiKit.Place(card, new Vector2(1f, 1f), new Vector2(1f, 1f),
-                        new Vector2(-36f, -30f), new Vector2(360f, 132f));
+                        new Vector2(-28f, -24f), new Vector2(300f, 118f));
 
-            _deliveredText = Head(card, "0", 58, TextAnchor.UpperRight);
-            _deliveredText.rectTransform.offsetMin = new Vector2(20f, 0f);
-            _deliveredText.rectTransform.offsetMax = new Vector2(-26f, -10f);
+            _deliveredText = Head(card, "0", 46, TextAnchor.UpperRight);
+            _deliveredText.rectTransform.offsetMin = new Vector2(18f, 0f);
+            _deliveredText.rectTransform.offsetMax = new Vector2(-22f, -8f);
 
-            var caption = Body(card, "DELIVERED", 24, TextAnchor.UpperLeft);
-            caption.rectTransform.offsetMin = new Vector2(28f, 0f);
-            caption.rectTransform.offsetMax = new Vector2(-24f, -22f);
+            // "PUT AWAY", because that is now the words on the button at the closet.
+            // It used to say DELIVERED while the prompt said "put away", which is two
+            // names for the only action that scores.
+            var caption = Body(card, "PUT AWAY", 22, TextAnchor.UpperLeft);
+            caption.rectTransform.offsetMin = new Vector2(24f, 0f);
+            caption.rectTransform.offsetMax = new Vector2(-20f, -18f);
 
-            _scoreText = Body(card, "", 26, TextAnchor.LowerRight);
-            _scoreText.rectTransform.offsetMin = new Vector2(20f, 18f);
-            _scoreText.rectTransform.offsetMax = new Vector2(-26f, -84f);
+            // "0 / 6.4" told you nothing about what was being counted.
+            _scoreText = Body(card, "", 22, TextAnchor.LowerRight);
+            _scoreText.rectTransform.offsetMin = new Vector2(18f, 14f);
+            _scoreText.rectTransform.offsetMax = new Vector2(-22f, -70f);
 
             // The streak lives under the card: it is a reward, not a requirement, and it
             // should not compete with the number that decides your stars.
             _streakText = Body(parent, "", 24, TextAnchor.UpperRight, UiKit.Yellow);
             UiKit.Place(_streakText.rectTransform, new Vector2(1f, 1f), new Vector2(1f, 1f),
-                        new Vector2(-40f, -172f), new Vector2(420f, 34f));
+                        new Vector2(-32f, -150f), new Vector2(420f, 30f));
             var so = _streakText.gameObject.AddComponent<Outline>();
             so.effectColor = UiKit.NavyDeep;
             so.effectDistance = new Vector2(2f, -2f);
@@ -338,29 +350,34 @@ namespace LaundryMonster
         {
             var card = UiKit.Card(parent, "Monster", UiKit.Cream, UiKit.Navy, 7f);
             UiKit.Place(card, new Vector2(0f, 0f), new Vector2(0f, 0f),
-                        new Vector2(36f, 36f), new Vector2(470f, 120f));
+                        new Vector2(28f, 28f), new Vector2(390f, 112f));
 
-            _monsterLabel = Head(card, "ANGER", 34, TextAnchor.UpperLeft);
-            _monsterLabel.rectTransform.offsetMin = new Vector2(30f, 0f);
-            _monsterLabel.rectTransform.offsetMax = new Vector2(-24f, -14f);
+            _monsterLabel = Head(card, "MONSTER", 30, TextAnchor.UpperLeft);
+            _monsterLabel.rectTransform.offsetMin = new Vector2(24f, 0f);
+            _monsterLabel.rectTransform.offsetMax = new Vector2(-20f, -10f);
 
             // Backlog is a different quantity from anger and is labelled as one: it is
             // what makes the Monster BIG, where anger is what makes it dangerous.
-            _backlogText = Body(card, "", 24, TextAnchor.UpperRight);
-            _backlogText.rectTransform.offsetMin = new Vector2(30f, 0f);
-            _backlogText.rectTransform.offsetMax = new Vector2(-28f, -20f);
+            _backlogText = Body(card, "", 20, TextAnchor.UpperRight);
+            _backlogText.rectTransform.offsetMin = new Vector2(24f, 0f);
+            _backlogText.rectTransform.offsetMax = new Vector2(-22f, -16f);
+
+            // The bar never said what filling it would do to you.
+            _monsterCaption = Body(card, "", 17, TextAnchor.LowerLeft);
+            _monsterCaption.rectTransform.offsetMin = new Vector2(25f, 9f);
+            _monsterCaption.rectTransform.offsetMax = new Vector2(-20f, -84f);
 
             // What you are carrying this run, and what it is doing for you.
             _ownedStrip = Body(parent, "", 23, TextAnchor.LowerLeft, UiKit.Cream);
             UiKit.Place(_ownedStrip.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 0f),
-                        new Vector2(38f, 168f), new Vector2(620f, 34f));
+                        new Vector2(30f, 150f), new Vector2(620f, 30f));
             var stripOutline = _ownedStrip.gameObject.AddComponent<Outline>();
             stripOutline.effectColor = UiKit.NavyDeep;
             stripOutline.effectDistance = new Vector2(2f, -2f);
 
             _sprayChip = UiKit.Card(parent, "Spray", UiKit.Mint(), UiKit.Navy, 5f);
             UiKit.Place(_sprayChip, new Vector2(0f, 0f), new Vector2(0f, 0f),
-                        new Vector2(38f, 210f), new Vector2(330f, 62f));
+                        new Vector2(30f, 188f), new Vector2(300f, 54f));
             _sprayText = Head(_sprayChip, "", 26, TextAnchor.MiddleCenter);
             _sprayChip.gameObject.SetActive(false);
 
@@ -369,14 +386,14 @@ namespace LaundryMonster
             segs.transform.SetParent(card, false);
             var srt = segs.AddComponent<RectTransform>();
             UiKit.Place(srt, new Vector2(0f, 0f), new Vector2(0f, 0f),
-                        new Vector2(30f, 22f), new Vector2(410f, 34f));
+                        new Vector2(24f, 32f), new Vector2(342f, 26f));
 
             const int count = 7;
             for (int i = 0; i < count; i++)
             {
                 var seg = UiKit.Block(segs.transform, "Seg", UiKit.Grey, UiKit.Card9);
                 UiKit.Place(seg.rectTransform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
-                            new Vector2(i * 58f, 0f), new Vector2(50f, 34f));
+                            new Vector2(i * 49f, 0f), new Vector2(42f, 26f));
                 _monsterSegs.Add(seg);
             }
         }
@@ -530,33 +547,39 @@ namespace LaundryMonster
                 bool washer = m.MachineMode == LaundryMachine.Mode.Washer;
                 var accent = washer ? UiKit.Blue : UiKit.Orange;
 
-                var card = UiKit.Card(_gameplay.transform, "Badge", UiKit.Cream, accent, 6f);
+                // These sat at 204x80 each - four of them across a row of four machines
+                // covered the machines. The name moves onto the ring's left and the card
+                // shrinks to the width of its own status word.
+                var card = UiKit.Card(_gameplay.transform, "Badge", UiKit.Cream, accent, 5f);
                 UiKit.Place(card, new Vector2(0f, 0f), new Vector2(0.5f, 0.5f),
-                            Vector2.zero, new Vector2(204f, 80f));
+                            Vector2.zero, new Vector2(152f, 54f));
 
-                var label = Body(card, washer ? "WASH" : "DRY", 24, TextAnchor.UpperLeft, UiKit.Navy);
-                label.rectTransform.offsetMin = new Vector2(18f, 0f);
-                label.rectTransform.offsetMax = new Vector2(-62f, -8f);
+                var label = Body(card, washer ? "WASH" : "DRY", 16, TextAnchor.UpperLeft, UiKit.Navy);
+                label.rectTransform.offsetMin = new Vector2(12f, 0f);
+                label.rectTransform.offsetMax = new Vector2(-44f, -5f);
 
                 var pill = UiKit.Block(card, "Pill", UiKit.Grey, UiKit.Card9);
                 UiKit.Place(pill.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 0f),
-                            new Vector2(16f, 12f), new Vector2(122f, 34f));
+                            new Vector2(10f, 6f), new Vector2(96f, 24f));
 
-                var status = Head(card, "", 30, TextAnchor.LowerLeft, UiKit.Navy);
-                status.rectTransform.offsetMin = new Vector2(22f, 10f);
-                status.rectTransform.offsetMax = new Vector2(-64f, -34f);
+                var status = Head(card, "", 22, TextAnchor.LowerLeft, UiKit.Navy);
+                status.rectTransform.offsetMin = new Vector2(14f, 6f);
+                status.rectTransform.offsetMax = new Vector2(-44f, -24f);
                 status.resizeTextForBestFit = true;
-                status.resizeTextMinSize = 16;
-                status.resizeTextMaxSize = 30;
-                status.horizontalOverflow = HorizontalWrapMode.Wrap;
+                status.resizeTextMinSize = 12;
+                status.resizeTextMaxSize = 22;
+                // Overflow, not Wrap: a wrapped second line has nowhere to go in a
+                // 54px card and gets drawn over the first.
+                status.horizontalOverflow = HorizontalWrapMode.Overflow;
+                status.verticalOverflow = VerticalWrapMode.Truncate;
 
                 var ringBack = UiKit.Block(card, "RingBack", UiKit.Grey, UiKit.Ring);
                 UiKit.Place(ringBack.rectTransform, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
-                            new Vector2(-14f, 0f), new Vector2(44f, 44f));
+                            new Vector2(-11f, 0f), new Vector2(32f, 32f));
 
                 var ringFill = UiKit.Block(card, "RingFill", accent, UiKit.Ring);
                 UiKit.Place(ringFill.rectTransform, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
-                            new Vector2(-14f, 0f), new Vector2(44f, 44f));
+                            new Vector2(-11f, 0f), new Vector2(32f, 32f));
                 ringFill.type = Image.Type.Filled;
                 ringFill.fillMethod = Image.FillMethod.Radial360;
                 ringFill.fillOrigin = (int)Image.Origin360.Top;
@@ -897,6 +920,7 @@ namespace LaundryMonster
 
             var sub2 = Body(_picker.transform, "a good day earns one piece of equipment",
                             28, TextAnchor.UpperCenter, UiKit.Yellow);
+            _pickHint = sub2;
             UiKit.Place(sub2.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                         new Vector2(0f, -156f), new Vector2(1200f, 44f));
 
@@ -927,15 +951,20 @@ namespace LaundryMonster
                 _pickBody.Add(body);
 
                 _pickCards.Add(card);
-                _pickRects.Add(new Rect(0f, 0f, 0f, 0f));   // filled in on show
             }
 
             _picker.SetActive(false);
         }
 
+        Text _pickHint;
+
         void UpdatePicker()
         {
             var dir = _dir;
+            if (_pickHint != null)
+                _pickHint.text = GameInput.Active == GameInput.Scheme.Touch
+                    ? "tap a card to take it"
+                    : "a good day earns one piece of equipment";
             for (int i = 0; i < _pickCards.Count; i++)
             {
                 bool used = i < dir.Offered.Count;
@@ -946,13 +975,6 @@ namespace LaundryMonster
                 _pickName[i].text = info.Name;
                 _pickBody[i].text = info.Effect + "\n\n" + info.Tradeoff;
                 _pickKey[i].text = PickGlyph(i);
-
-                // Screen rect in reference units, for touch hit-testing.
-                var rt = _pickCards[i];
-                var c = rt.anchoredPosition;
-                var sz = rt.sizeDelta;
-                _pickRects[i] = new Rect(RefW * 0.5f + c.x - sz.x * 0.5f,
-                                         RefH * 0.5f + c.y - sz.y * 0.5f, sz.x, sz.y);
             }
         }
 
@@ -964,13 +986,30 @@ namespace LaundryMonster
             return (i + 1).ToString();
         }
 
-        /// <summary>Which offered card a tap landed on, or -1. Touch has no EventSystem.</summary>
+        /// <summary>
+        /// Which offered card a tap landed on, or -1. Touch has no EventSystem, so the
+        /// hit test is done by hand - but against the card's own RectTransform.
+        ///
+        /// It used to rebuild each card's rectangle arithmetically around 1920/2. That
+        /// is only the centre of the canvas on a 16:9 screen: a CanvasScaler on match
+        /// 0.5 blends the two axes, so a 19.5:9 phone gets a canvas roughly 2120 units
+        /// wide whose centre is nowhere near 960. Every hit box sat about a hundred
+        /// units to the left of the card it was supposed to belong to, which is why
+        /// tapping an upgrade on an iPhone did nothing whatsoever.
+        /// </summary>
         public int UpgradeCardAt(Vector2 screenPoint)
         {
-            if (_canvas == null || _canvas.scaleFactor <= 0f) return -1;
-            var p = screenPoint / _canvas.scaleFactor;
-            for (int i = 0; i < _pickRects.Count && i < _dir.Offered.Count; i++)
-                if (_pickRects[i].Contains(p)) return i;
+            // Screen Space - Overlay takes a null camera; passing one gives wrong hits.
+            var cam = _canvas != null && _canvas.renderMode != RenderMode.ScreenSpaceOverlay
+                ? _canvas.worldCamera : null;
+
+            for (int i = 0; i < _pickCards.Count && i < _dir.Offered.Count; i++)
+            {
+                var rt = _pickCards[i];
+                if (rt == null || !rt.gameObject.activeInHierarchy) continue;
+                if (RectTransformUtility.RectangleContainsScreenPoint(rt, screenPoint, cam))
+                    return i;
+            }
             return -1;
         }
 
@@ -1082,16 +1121,10 @@ namespace LaundryMonster
 
             // The finishing period is a promise: nothing more is coming, so everything
             // still out there can in principle be finished.
-            if (_dir.ArrivalsDone && _dir.CurrentPhase == Phase.Playing)
-            {
-                _secondsText.text = "LAST LOAD - no more arrivals";
-                _secondsText.color = UiKit.Orange;
-            }
-            else
-            {
-                _secondsText.text = Mathf.CeilToInt(left) + "s left";
-                _secondsText.color = UiKit.Navy;
-            }
+            // Only the one thing the clock itself cannot say. "215s left" next to
+            // "03:35" was the same fact twice in two units.
+            _secondsText.text = _dir.ArrivalsDone && _dir.CurrentPhase == Phase.Playing
+                ? "LAST LOAD - no more arrivals" : "";
         }
 
         void UpdateDelivered()
@@ -1104,7 +1137,8 @@ namespace LaundryMonster
             float punch = 1f + _deliveredPop * 0.35f;
             _deliveredText.rectTransform.localScale = Vector3.one * punch;
 
-            _scoreText.text = _dir.Score.ToString("0.#") + " / " + _dir.Target.ToString("0.#");
+            _scoreText.text = "score  " + _dir.Score.ToString("0.#")
+                            + " / " + _dir.Target.ToString("0.#") + " to pass";
             bool met = _dir.Score >= _dir.Target;
             _scoreText.color = met ? UiKit.Green
                 : new Color(UiKit.Navy.r, UiKit.Navy.g, UiKit.Navy.b, 0.75f);
@@ -1135,8 +1169,17 @@ namespace LaundryMonster
                 _monsterSegs[i].color = c;
             }
 
-            _monsterLabel.text = frac > 0.75f ? "ANGER - it has eyes now" : "ANGER";
-            _monsterLabel.fontSize = frac > 0.75f ? 26 : 34;
+            // "ANGER" was a bar with no owner and no stated consequence. Both now
+            // appear, and the warning only replaces the caption once it is earned.
+            _monsterLabel.text = "MONSTER";
+            _monsterLabel.fontSize = 30;
+
+            _monsterCaption.text = frac > 0.75f ? "IT HAS EYES NOW"
+                                 : frac > 0.4f  ? "full bar = it eats you"
+                                                : "fills while laundry waits";
+            _monsterCaption.color = frac > 0.75f
+                ? Color.Lerp(UiKit.Red, UiKit.Yellow, UiKit.Pulse(7f))
+                : new Color(UiKit.Navy.r, UiKit.Navy.g, UiKit.Navy.b, 0.6f);
 
             int backlog = _dir.Backlog;
             _backlogText.text = backlog + " waiting";
@@ -1229,7 +1272,7 @@ namespace LaundryMonster
             {
                 if (b.Machine == null) continue;
 
-                var world = b.Machine.transform.position + new Vector3(0f, 1.42f, 0f);
+                var world = b.Machine.transform.position + new Vector3(0f, 1.62f, 0f);
                 var sp = cam.WorldToScreenPoint(world);
                 bool visible = sp.z > 0f;
                 SetActive(b.Root.gameObject, visible);
@@ -1242,7 +1285,7 @@ namespace LaundryMonster
 
                 if (m.Offline)
                 {
-                    b.Status.text = "FIRE";
+                    b.Status.text = "ON FIRE";
                     b.Pill.color = UiKit.Red;
                     SetActive(b.Pill.gameObject, true);
                     b.RingFill.fillAmount = 0f;
@@ -1324,7 +1367,8 @@ namespace LaundryMonster
             }
 
             var near = _player.Nearest;
-            string action = "";
+            string action = "";     // something the key will actually do
+            string advice = "";     // why there is nothing to press
             bool hold = false;
 
             if (near != null)
@@ -1333,14 +1377,20 @@ namespace LaundryMonster
                 string held = near.HoldPrompt(_player);
                 if (!string.IsNullOrEmpty(held) && near.HoldSeconds(_player) > 0f)
                 {
-                    action = "Hold to " + held;
+                    action = "Hold to " + char.ToLower(held[0]) + held.Substring(1);
                     hold = true;
                 }
                 else if (!string.IsNullOrEmpty(tap))
                 {
-                    action = char.ToUpper(tap[0]) + tap.Substring(1);
+                    action = tap;
+                }
+                else
+                {
+                    advice = near.BlockedReason(_player);
                 }
 
+                // The station's own counter, once, and only next to a real action. It
+                // used to run on after advice too, which read as part of the sentence.
                 if (!string.IsNullOrEmpty(action))
                 {
                     string status = near.Status;
@@ -1348,15 +1398,30 @@ namespace LaundryMonster
                 }
             }
 
-            bool show = !string.IsNullOrEmpty(action) || _player.Carried.Count > 0;
+            bool show = !string.IsNullOrEmpty(action) || !string.IsNullOrEmpty(advice)
+                        || _player.Carried.Count > 0;
             SetActive(_actionBar.gameObject, show);
             if (!show) return;
 
-            _actionText.text = string.IsNullOrEmpty(action)
-                ? (_player.CarryPenalty > 0
+            if (!string.IsNullOrEmpty(action))
+            {
+                _actionText.text = action;
+                _actionText.color = UiKit.Cream;
+            }
+            else if (!string.IsNullOrEmpty(advice))
+            {
+                _actionText.text = advice;
+                // Dimmed, and with no key cap: this is a reason, not a button.
+                _actionText.color = new Color(1f, 0.86f, 0.55f, 0.95f);
+            }
+            else
+            {
+                _actionText.text = _player.CarryPenalty > 0
                     ? "Carrying  (" + _player.CarryCapacity + " slot, AirPods lost)"
-                    : "Carrying")
-                : action;
+                    : "Carrying";
+                _actionText.color = new Color(1f, 1f, 1f, 0.7f);
+            }
+
             _actionKeyText.text = GameInput.InteractGlyph;
             SetActive(_actionKey.gameObject, !string.IsNullOrEmpty(action));
 
@@ -1508,8 +1573,15 @@ namespace LaundryMonster
         {
             string act = GameInput.InteractGlyph;
             string hold = GameInput.HoldGlyph;
+            // A phone player has no key cap to look at, so say where the controls are.
+            string controls = GameInput.Active == GameInput.Scheme.Touch
+                ? "Drag anywhere on the LEFT to walk.   The round button on the RIGHT does "
+                  + "whatever you are standing next to - it says so on its face.\n"
+                  + "   Some jobs need it held down. The small button on the left pauses.\n\n"
+                : GameInput.MoveGlyph + " to move.   " + act + " to interact.   Some things need it HELD.\n\n";
+
             return
-                GameInput.MoveGlyph + " to move.   " + act + " to interact.   Some things need it HELD.\n\n" +
+                controls +
                 "THE LOOP\n" +
                 "  Pull dirty clothes off the MONSTER  ->  WASHER (blue)  ->  DRYER (orange)\n" +
                 "  ->  " + hold.ToUpper() + " at the FOLD TABLE  ->  put it away in the CLOSET. Only the closet scores.\n\n" +

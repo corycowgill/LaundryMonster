@@ -79,9 +79,9 @@ namespace LaundryMonster
         public override string HoldPrompt(PlayerController p)
         {
             Garment a, b;
-            if (FindMatch(p, out a, out b)) return "match the pair";
+            if (FindMatch(p, out a, out b)) return "Match the pair";
             if (p.Carried.Count == 0 && Orphans.Count >= Tuning.OrphansPerRag)
-                return "make a dust rag from " + Tuning.OrphansPerRag + " orphans";
+                return "Make a dust rag from " + Tuning.OrphansPerRag + " orphans";
             return "";
         }
 
@@ -123,10 +123,10 @@ namespace LaundryMonster
         public override string ActionPrompt(PlayerController p)
         {
             if (LoneSocksCarried(p) > 0)
-                return WouldMatch(p) ? "match it with the one waiting here"
-                                     : "leave the sock here for its partner";
-            if (ReadyPairs.Count > 0 && p.FreeSlots > 0) return "pick up a matched pair";
-            if (Rags > 0 && AnyLint()) return "use a dust rag on every lint trap";
+                return WouldMatch(p) ? "Match it with the sock waiting here"
+                                     : "Leave the sock here for its partner";
+            if (ReadyPairs.Count > 0 && p.FreeSlots > 0) return "Take a matched pair";
+            if (Rags > 0 && AnyLint()) return "Use a dust rag on every lint trap";
             return "";
         }
 
@@ -158,6 +158,7 @@ namespace LaundryMonster
 
         public override void Interact(PlayerController p)
         {
+            Squash.Pop(this, 0.14f);
             if (LoneSocksCarried(p) > 0)
             {
                 bool matched = false;

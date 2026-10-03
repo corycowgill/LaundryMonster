@@ -48,7 +48,9 @@ public static class RoomBuilder
         var root = new GameObject(RootName);
 
         // ---- palette ----
-        var floorMat   = Mat(new Color(0.52f, 0.50f, 0.55f), 0.35f);
+        // Warm sand rather than cold purple-grey: the floor is most of the screen and
+        // it was setting the temperature of the whole room against the cream walls.
+        var floorMat   = Mat(new Color(0.78f, 0.73f, 0.66f), 0.18f);
         var wallMat    = Mat(new Color(0.84f, 0.82f, 0.76f), 0.08f, 0f, "wall_paint", new Vector2(5f, 1.2f));
         var trimMat    = Mat(new Color(0.42f, 0.41f, 0.40f), 0.25f);
         var washerMat  = Mat(new Color(0.86f, 0.89f, 0.95f), 0.55f, 0.25f, "metal_brushed", new Vector2(1.2f, 1f));
@@ -68,12 +70,15 @@ public static class RoomBuilder
         // ---- shell ----
         var floor = Box(root.transform, "Floor", new Vector3(0f, -0.05f, 1f),
                         new Vector3(17f, 0.1f, 13f), floorMat);
-        Style(floor, SurfaceStyle.Style.Floor, new Vector2(8f, 6f), 0.35f);
+        // Bigger tiles, so there are ten across the room instead of sixteen.
+        Style(floor, SurfaceStyle.Style.Floor, new Vector2(5f, 4f), 0.14f);
         floor.isStatic = true;
 
-        Box(root.transform, "Wall_Back",  new Vector3(0f, 1.4f, 7.6f),  new Vector3(17f, 2.8f, 0.4f), wallMat);
-        Box(root.transform, "Wall_Left",  new Vector3(-8.3f, 1.4f, 1f), new Vector3(0.4f, 2.8f, 13f), wallMat);
-        Box(root.transform, "Wall_Right", new Vector3(8.3f, 1.4f, 1f),  new Vector3(0.4f, 2.8f, 13f), wallMat);
+        // 4.4m rather than 2.8m. CameraFraming widens the field of view on a narrow
+        // window, and the extra height is what it looks at instead of the void above.
+        Box(root.transform, "Wall_Back",  new Vector3(0f, 2.2f, 7.6f),  new Vector3(17f, 4.4f, 0.4f), wallMat);
+        Box(root.transform, "Wall_Left",  new Vector3(-8.3f, 2.2f, 1f), new Vector3(0.4f, 4.4f, 13f), wallMat);
+        Box(root.transform, "Wall_Right", new Vector3(8.3f, 2.2f, 1f),  new Vector3(0.4f, 4.4f, 13f), wallMat);
 
         // Skirting, so the wall/floor join reads as a room rather than a box.
         Box(root.transform, "Skirt_Back",  new Vector3(0f, 0.09f, 7.36f),  new Vector3(17f, 0.18f, 0.12f), trimMat);
@@ -121,17 +126,34 @@ public static class RoomBuilder
         monsterRoot.transform.localScale = Vector3.one * Tuning.MonsterMinScale;
         monsterRoot.AddComponent<MonsterAnimator>();
         monsterRoot.AddComponent<MonsterAttack>();
+        // Eyes that open as it gets angry. The results screen has been promising these
+        // for a while.
+        monsterRoot.AddComponent<MonsterFace>();
 
         var hamperComp = monsterRoot.AddComponent<Hamper>();
         hamperComp.InteractRadius = 2.9f;          // it is big, so reach it from further out
         monsterRoot.AddComponent<LaundryMonster.Highlighter>();
 
+        // ---- camera ----
+        PlaceCamera();
+
         // ---- player ----
         var player = new GameObject("Player");
         player.transform.position = new Vector3(0f, 0f, -2f);
         BuildPlayer(player.transform, shirtMat, skinMat);
-        player.AddComponent<PlayerController>();
+        var pc = player.AddComponent<PlayerController>();
+        // Set here rather than left on the component's defaults, because they are a
+        // property of the camera framing above as much as of the room: the old -4.2
+        // southern limit is now a metre below the bottom edge of the picture.
+        // The two southern corners are the tight ones: down there the player is closest
+        // to the camera, so the head projects further out than the feet and (-7, -3.9)
+        // put it past the left edge of the screen entirely. Nothing stands in those
+        // corners, so the bounds give them up rather than the camera giving up its framing.
+        pc.RoomMin = new Vector2(-6.3f, -3.4f);
+        pc.RoomMax = new Vector2(6.3f, 6.2f);
         player.AddComponent<HeroAnimator>();
+        // Lights the bench each thing in your arms is asking for.
+        player.AddComponent<NextStopGuide>();
 
         // ---- set dressing ----
         BuildDecor(root.transform);
@@ -416,6 +438,49 @@ public static class RoomBuilder
 
 
 
+    /// <summary>
+    /// Pull the camera in.
+    ///
+    /// It sat at y 11.5 / z -9.5 looking down at 48 degrees, which put about a metre of
+    /// wall and empty floor around every edge of the room - the props were small and the
+    /// floor was most of the picture. These numbers are the closest that still keep the
+    /// back wall, the fold table and the player's southern movement limit in frame; the
+    /// bottom edge of the view lands at z -4.3 against a player limit of -3.9, and the
+    /// top edge passes under the lamp rig at z 6.6 rather than slicing through it.
+    ///
+    /// Lives here rather than in the scene so it survives a rebuild and is reviewable.
+    /// </summary>
+    static void PlaceCamera()
+    {
+        var cam = Camera.main;
+        if (cam == null) return;
+        cam.transform.position = new Vector3(0f, 9.6f, -7.3f);
+        cam.transform.rotation = Quaternion.Euler(50f, 0f, 0f);
+        cam.fieldOfView = 45f;
+
+        // The field of view is no longer a constant. These are the things that have to
+        // stay on screen; CameraFraming solves for the narrowest view containing them
+        // at whatever shape the window turns out to be.
+        var fr = cam.GetComponent<CameraFraming>();
+        if (fr == null) fr = cam.gameObject.AddComponent<CameraFraming>();
+        fr.MustSee = new[]
+        {
+            // The four corners the player can reach, at head height - the southern two
+            // are the tight ones, being nearest the lens.
+            new Vector3(-6.3f, 1.8f, -3.4f), new Vector3(6.3f, 1.8f, -3.4f),
+            new Vector3(-6.3f, 1.8f,  6.2f), new Vector3(6.3f, 1.8f,  6.2f),
+
+            // The machines, high enough to include the status badge above each one.
+            new Vector3(-3.0f, 2.3f, 5.5f), new Vector3(5.0f, 2.3f, 5.5f),
+
+            // The three stations furthest off the centre line.
+            new Vector3(7.1f, 2.0f, 0.5f),    // closet
+            new Vector3(-6.0f, 1.2f, -2.2f),  // sock drawer
+            new Vector3(-5.9f, 2.6f, 4.6f),   // the Monster, at full size
+        };
+        fr.Refresh();
+    }
+
     static GameObject MakeMachine(Transform parent, string name, Vector3 pos, Material shell,
                                   Material glass, Material panel, Material chrome,
                                   LaundryMachine.Mode mode)
@@ -426,9 +491,13 @@ public static class RoomBuilder
 
         // Generated model if we have one; the primitive build is the fallback.
         bool washer = mode == LaundryMachine.Mode.Washer;
+        // Tinted toward the colour its badge uses. Both machines were off-white boxes
+        // with a stripe on top, which is only legible from directly overhead - and the
+        // camera is not directly overhead.
         var model = AddModel(go.transform, "Model", washer ? "washer" : "dryer", Vector3.zero,
                              Quaternion.Euler(0f, ModelYaw, 0f),
-                             Color.white, 0.5f);
+                             washer ? new Color(0.80f, 0.88f, 1.00f)
+                                    : new Color(1.00f, 0.86f, 0.70f), 0.5f);
         if (model == null)
         {
             Child(go.transform, "Mesh", PrimitiveType.Cube,
@@ -462,16 +531,26 @@ public static class RoomBuilder
 
         // Colour-coded lid, so washers and dryers read instantly from above. This stays
         // even with the model: it is the thing that tells the two machine types apart.
+        var lidColor = washer ? new Color(0.18f, 0.46f, 0.80f)
+                              : new Color(0.92f, 0.48f, 0.14f);
         Child(go.transform, "Strip", PrimitiveType.Cube,
               new Vector3(0f, model != null ? 1.33f : 1.21f, model != null ? 0f : 0.12f),
               new Vector3(model != null ? 0.95f : 1.5f, 0.07f, model != null ? 0.98f : 1.1f),
-              Mat(mode == LaundryMachine.Mode.Washer
-                  ? new Color(0.22f, 0.50f, 0.82f)
-                  : new Color(0.90f, 0.50f, 0.18f), 0.4f));
+              Mat(lidColor, 0.4f));
+
+        // A band across the front in the same colour. The lid is the only marking the
+        // machine had, and from a 50-degree camera the lid is a sliver - this is the
+        // face the player actually sees while walking toward it.
+        Child(go.transform, "FrontBand", PrimitiveType.Cube,
+              new Vector3(0f, model != null ? 1.12f : 1.05f, model != null ? -0.62f : -0.70f),
+              new Vector3(model != null ? 0.92f : 1.45f, 0.14f, 0.06f),
+              Mat(lidColor, 0.3f));
 
         var m = go.AddComponent<LaundryMachine>();
         m.MachineMode = mode;
         m.InteractRadius = 1.85f;
+        // Judders while it runs, nods while it waits to be emptied, shakes when on fire.
+        go.AddComponent<MachineMotion>();
         go.AddComponent<LaundryMonster.Highlighter>();
         return go;
     }

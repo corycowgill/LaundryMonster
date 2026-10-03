@@ -135,20 +135,49 @@ namespace LaundryMonster
 
         public override string ActionPrompt(PlayerController p)
         {
-            if (Offline || Running) return "";
-            if (HasFinishedLoad) return p.FreeSlots > 0 ? "unload" : "hands full";
+            string me = MachineMode == Mode.Washer ? "washer" : "dryer";
+            if (Offline) return "";
+            if (Running) return "";
+            if (HasFinishedLoad) return p.FreeSlots > 0 ? "Unload " + me : "";
 
             int loadable = 0;
             foreach (var g in p.Carried) if (Accepts(g)) loadable++;
-            if (loadable > 0 && Contents.Count < Tuning.MachineCapacity) return "load";
+            if (loadable > 0 && Contents.Count < Tuning.MachineCapacity) return "Load " + me;
 
-            if (HasUnstartedLoad) return "start";
+            if (HasUnstartedLoad) return "Start " + me;
+            return "";
+        }
+
+        /// <summary>
+        /// Carrying something this machine cannot take is the commonest way to end up
+        /// standing still in front of it, so name the machine that CAN take it.
+        /// </summary>
+        public override string BlockedReason(PlayerController p)
+        {
+            string me = MachineMode == Mode.Washer ? "washer" : "dryer";
+            if (Offline) return "On fire - it comes back by itself";
+            if (Running) return "";
+            if (HasFinishedLoad)
+                return p.FreeSlots > 0 ? "" : "Hands full - the " + me + " is waiting";
+            if (Contents.Count >= Tuning.MachineCapacity) return "";
+
+            foreach (var g in p.Carried)
+            {
+                if (g == null || g.NeedsPartner) continue;
+                if (Accepts(g)) return "";
+                if (g.State == GarmentState.Wet || g.State == GarmentState.Wrinkled)
+                    return "That one needs the dryer";
+                if (g.State == GarmentState.Dirty || g.State == GarmentState.Mildewed)
+                    return "That one needs the washer";
+                if (g.State == GarmentState.CleanDry) return "That one is washed and dried - fold it";
+            }
             return "";
         }
 
         public override void Interact(PlayerController p)
         {
             if (Offline || Running) return;
+            Squash.Pop(this);
 
             // 1. Finished load waiting? Take it out.
             if (HasFinishedLoad)
@@ -217,8 +246,9 @@ namespace LaundryMonster
         public override string HoldPrompt(PlayerController p)
         {
             if (HoldSeconds(p) <= 0f) return "";
-            if (MachineMode == Mode.Dryer) return "clean the lint trap (" + Lint + "/" + Tuning.LintMax + ")";
-            return "check pockets, then load";
+            if (MachineMode == Mode.Dryer)
+                return "Clean the lint trap (" + Lint + "/" + Tuning.LintMax + ")";
+            return "Check pockets, then load washer";
         }
 
         public override void HoldInteract(PlayerController p)

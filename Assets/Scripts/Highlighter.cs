@@ -22,6 +22,12 @@ namespace LaundryMonster
         Material _padMat;
         bool _on;
 
+        // Set by NextStopGuide: this station is where something in the player's arms
+        // needs to go. Kept separate from _on so standing at a station always looks the
+        // same whether or not you happen to be carrying something for it.
+        bool _wanted;
+        Color _wantedTint = Color.white;
+
         const float PadSize = 2.9f;
 
         static readonly Color PadIdle = new Color(0.35f, 0.75f, 0.95f);
@@ -79,25 +85,72 @@ namespace LaundryMonster
         public void SetHighlighted(bool on, bool actionable)
         {
             _on = on;
+            _actionable = actionable;
+            Apply();
+        }
+
+        /// <summary>
+        /// Mark this station as the destination for something the player is carrying.
+        /// Drawn slower and dimmer than the standing-here highlight, and in the
+        /// garment's own destination colour, so the two never read as the same signal.
+        /// </summary>
+        public void SetWanted(bool on, Color tint)
+        {
+            if (_wanted == on && (!on || _wantedTint == tint)) return;
+            _wanted = on;
+            _wantedTint = tint;
+            Apply();
+        }
+
+        bool _actionable;
+
+        void Apply()
+        {
+            bool showPad = _on || _wanted;
 
             if (_pad != null)
             {
-                if (_pad.gameObject.activeSelf != on) _pad.gameObject.SetActive(on);
-                if (on && _padMat != null)
-                {
-                    float pulse = 0.5f + 0.5f * Mathf.Sin(Time.time * 5f);
-                    _padMat.color = Color.Lerp(actionable ? PadBusy : PadIdle, Color.white, pulse * 0.45f);
-                    float s = PadSize + pulse * 0.16f;
-                    _pad.localScale = new Vector3(s, 0.012f, s);
-                }
+                if (_pad.gameObject.activeSelf != showPad) _pad.gameObject.SetActive(showPad);
+                if (showPad && _padMat != null) _padLive = true;
             }
 
             for (int i = 0; i < _mats.Count; i++)
             {
                 if (_mats[i] == null) continue;
-                _mats[i].color = on
+                _mats[i].color = _on
                     ? Color.Lerp(_baseColors[i], Color.white, 0.22f)
-                    : _baseColors[i];
+                    : _wanted
+                        ? Color.Lerp(_baseColors[i], _wantedTint, 0.18f)
+                        : _baseColors[i];
+            }
+        }
+
+        bool _padLive;
+
+        /// <summary>
+        /// The pulse runs here rather than inside SetHighlighted, which only fired on the
+        /// station the player was standing at. A destination across the room gets no such
+        /// call, so without this its pad would sit there frozen and look like scenery.
+        /// </summary>
+        void Update()
+        {
+            if (_pad == null || _padMat == null || !_padLive) return;
+            if (!_pad.gameObject.activeSelf) { _padLive = false; return; }
+
+            if (_on)
+            {
+                float pulse = 0.5f + 0.5f * Mathf.Sin(Time.time * 5f);
+                _padMat.color = Color.Lerp(_actionable ? PadBusy : PadIdle, Color.white, pulse * 0.45f);
+                float s = PadSize + pulse * 0.16f;
+                _pad.localScale = new Vector3(s, 0.012f, s);
+            }
+            else
+            {
+                // Half the speed and a smaller pad: a hint, not an instruction.
+                float pulse = 0.5f + 0.5f * Mathf.Sin(Time.time * 2.6f);
+                _padMat.color = Color.Lerp(_wantedTint * 0.85f, Color.white, pulse * 0.30f);
+                float s = PadSize * 0.78f + pulse * 0.10f;
+                _pad.localScale = new Vector3(s, 0.012f, s);
             }
         }
 

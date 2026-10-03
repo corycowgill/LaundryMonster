@@ -45,19 +45,22 @@ namespace LaundryMonster
                 int cx = x % cell, cy = y % cell;
                 int tileX = x / cell, tileY = y / cell;
 
-                // Grout
-                if (cx < 3 || cy < 3)
-                    return new Color(0.26f, 0.25f, 0.28f);
+                // Grout, two pixels instead of three and close to the tile in value.
+                // At 0.26 against a 0.59 tile it was the strongest edge on screen, and
+                // the floor read as a grid the player had to look past.
+                if (cx < 2 || cy < 2)
+                    return new Color(0.68f, 0.64f, 0.59f);
 
                 // Alternating tiles, each with its own faint tint so the floor is not flat.
                 bool alt = ((tileX + tileY) & 1) == 0;
-                float basis = alt ? 0.62f : 0.56f;
+                float basis = alt ? 0.80f : 0.76f;
 
-                float grain = Mathf.PerlinNoise(x * 0.22f, y * 0.22f) * 0.06f;
-                float blotch = Mathf.PerlinNoise(x * 0.04f + tileX, y * 0.04f + tileY) * 0.05f;
-                float v = basis + grain + blotch - 0.04f;
+                float grain = Mathf.PerlinNoise(x * 0.22f, y * 0.22f) * 0.045f;
+                float blotch = Mathf.PerlinNoise(x * 0.04f + tileX, y * 0.04f + tileY) * 0.04f;
+                float v = basis + grain + blotch - 0.03f;
 
-                return new Color(v * 0.98f, v * 0.96f, v);
+                // Warm, so the floor belongs to the same room as the cream walls.
+                return new Color(v, v * 0.965f, v * 0.915f);
             });
         }
 

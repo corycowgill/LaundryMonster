@@ -227,6 +227,8 @@ namespace LaundryMonster
             g.gameObject.SetActive(true);
             g.transform.SetParent(CarryAnchor, false);
             g.transform.localRotation = Quaternion.identity;
+            // The garment itself jumps into your arms rather than appearing there.
+            Squash.Pop(g, 0.28f);
 
             if (g.State != GarmentState.Dirty && g.State != GarmentState.Folded)
                 g.DecayMultiplier = 1f;

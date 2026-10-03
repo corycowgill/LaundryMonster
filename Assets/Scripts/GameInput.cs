@@ -193,7 +193,9 @@ namespace LaundryMonster
         public static string InteractGlyph => Active switch
         {
             Scheme.Gamepad => "(A)",
-            Scheme.Touch => "ACT",
+            // Not "ACT" any more: the button's face now carries the verb itself, so
+            // the word in the sentence should describe the gesture instead.
+            Scheme.Touch => "TAP",
             _ => "E",
         };
 
@@ -219,8 +221,13 @@ namespace LaundryMonster
             _ => "WASD",
         };
 
-        /// <summary>"hold E" / "hold (A)" / "hold the ACT button"</summary>
-        public static string HoldGlyph => Active == Scheme.Keyboard ? "hold E" : "hold " + InteractGlyph;
+        /// <summary>"hold E" / "hold (A)" / "press and hold"</summary>
+        public static string HoldGlyph => Active switch
+        {
+            Scheme.Gamepad => "hold (A)",
+            Scheme.Touch => "press and hold",
+            _ => "hold E",
+        };
 
         // ---- scheme tracking ----
 

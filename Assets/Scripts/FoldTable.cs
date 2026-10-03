@@ -39,7 +39,9 @@ namespace LaundryMonster
                     if (c.NeedsPartner) return "";   // tell them at the drawer, not here
                 return "";
             }
-            return g.State == GarmentState.Wrinkled ? "fold (wrinkled, half value)" : "fold";
+            return g.State == GarmentState.Wrinkled
+                ? "Fold " + g.KindName + " (wrinkled, half value)"
+                : "Fold " + g.KindName;
         }
 
         public override void HoldInteract(PlayerController p)
@@ -48,6 +50,7 @@ namespace LaundryMonster
             if (g == null) return;
 
             SfxPlayer.Play(Sfx.Fold, 1f, g.State == GarmentState.Wrinkled ? 0.75f : 1f);
+            Squash.Pop(this, 0.13f);
             g.FoldedWrinkled = g.State == GarmentState.Wrinkled;
             g.SetState(GarmentState.Folded);
             g.DecayMultiplier = 0f; // folded laundry is safe. briefly.

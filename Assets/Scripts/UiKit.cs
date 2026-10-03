@@ -46,15 +46,34 @@ namespace LaundryMonster
 
         static Sprite _card, _pill, _white, _disc, _ring, _bar, _star;
 
-        public static Sprite White => _white ??= Solid();
-        public static Sprite Card9 => _card ??= RoundedRect(64, 18);
-        public static Sprite Pill => _pill ??= RoundedRect(64, 31);
+        /// <summary>
+        /// Hand back the cached sprite, or make it again if it is gone.
+        ///
+        /// NOT `_x ??= Make()`. The null-coalescing operator tests for real C# null, and
+        /// a sprite Unity has destroyed - which is what happens to every runtime-created
+        /// one when play mode exits - is a live managed object wrapping a dead native
+        /// one. `??=` is perfectly happy with it and hands it straight to an Image, which
+        /// then draws a plain white quad instead. That is why the machines' progress
+        /// rings rendered as solid blocks: not a bad ring, a dead one.
+        ///
+        /// `== null` goes through UnityEngine.Object's operator, which knows the
+        /// difference. Same trap as the GetComponent note further down this file.
+        /// </summary>
+        static Sprite Cached(ref Sprite slot, System.Func<Sprite> make)
+        {
+            if (slot == null) slot = make();
+            return slot;
+        }
+
+        public static Sprite White => Cached(ref _white, Solid);
+        public static Sprite Card9 => Cached(ref _card, () => RoundedRect(64, 18));
+        public static Sprite Pill => Cached(ref _pill, () => RoundedRect(64, 31));
 
         /// <summary>For thin bars, where Pill's corners would be taller than the bar.</summary>
-        public static Sprite Bar => _bar ??= RoundedRect(32, 10);
-        public static Sprite Disc => _disc ??= DiscSprite(96);
-        public static Sprite Ring => _ring ??= RingSprite(192, 0.26f);
-        public static Sprite Star => _star ??= StarSprite(128);
+        public static Sprite Bar => Cached(ref _bar, () => RoundedRect(32, 10));
+        public static Sprite Disc => Cached(ref _disc, () => DiscSprite(96));
+        public static Sprite Ring => Cached(ref _ring, () => RingSprite(192, 0.26f));
+        public static Sprite Star => Cached(ref _star, () => StarSprite(128));
 
         static Texture2D NewTex(int w, int h)
         {
@@ -66,12 +85,24 @@ namespace LaundryMonster
             };
         }
 
+        /// <summary>
+        /// Sprite.Create leaves the new sprite as an ordinary runtime object, so play
+        /// mode takes it away on exit while the texture it wraps - which NewTex does
+        /// flag - survives. Flagging both keeps a cached sprite alive as long as the
+        /// static field that remembers it.
+        /// </summary>
+        static Sprite Keep(Sprite s)
+        {
+            s.hideFlags = HideFlags.HideAndDontSave;
+            return s;
+        }
+
         static Sprite Solid()
         {
             var t = NewTex(1, 1);
             t.SetPixel(0, 0, Color.white);
             t.Apply();
-            return Sprite.Create(t, new Rect(0, 0, 1, 1), new Vector2(0.5f, 0.5f), 1f);
+            return Keep(Sprite.Create(t, new Rect(0, 0, 1, 1), new Vector2(0.5f, 0.5f), 1f));
         }
 
         static Sprite RoundedRect(int size, int radius)
@@ -95,8 +126,8 @@ namespace LaundryMonster
             // canvas.referencePixelsPerUnit / sprite.pixelsPerUnit, and that default
             // reference is 100 - so a sprite made at 1 had its 18px corners drawn at
             // 1800 units, which turned every card into a lozenge.
-            return Sprite.Create(t, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f,
-                                 0, SpriteMeshType.FullRect, new Vector4(b, b, b, b));
+            return Keep(Sprite.Create(t, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f,
+                                 0, SpriteMeshType.FullRect, new Vector4(b, b, b, b)));
         }
 
         static Sprite DiscSprite(int size)
@@ -109,7 +140,7 @@ namespace LaundryMonster
                     t.SetPixel(x, y, new Color(1f, 1f, 1f,
                         Mathf.Clamp01(r - Vector2.Distance(new Vector2(x + 0.5f, y + 0.5f), c))));
             t.Apply();
-            return Sprite.Create(t, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 1f);
+            return Keep(Sprite.Create(t, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 1f));
         }
 
         static Sprite RingSprite(int size, float thickness)
@@ -126,7 +157,7 @@ namespace LaundryMonster
                         Mathf.Clamp01(Mathf.Min(outer - d, d - inner))));
                 }
             t.Apply();
-            return Sprite.Create(t, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 1f);
+            return Keep(Sprite.Create(t, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 1f));
         }
 
         /// <summary>
@@ -165,7 +196,7 @@ namespace LaundryMonster
                 }
             }
             t.Apply();
-            return Sprite.Create(t, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f);
+            return Keep(Sprite.Create(t, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f));
         }
 
         // ---------- garment icons ----------
@@ -183,7 +214,10 @@ namespace LaundryMonster
         /// </summary>
         public static Sprite GarmentIcon(GarmentKind kind)
         {
-            if (_icons.TryGetValue(kind, out var cached)) return cached;
+            // `cached != null` as well as TryGetValue: a dictionary happily keeps
+            // handing back a sprite play mode destroyed on the way out, and an Image
+            // given one of those silently draws a white square instead of a shirt.
+            if (_icons.TryGetValue(kind, out var cached) && cached != null) return cached;
             var made = PolygonSprite(Outline(kind), 96);
             _icons[kind] = made;
             return made;
@@ -250,7 +284,7 @@ namespace LaundryMonster
                 }
             }
             t.Apply();
-            return Sprite.Create(t, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f);
+            return Keep(Sprite.Create(t, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f));
         }
 
         static bool InPolygon(Vector2 p, Vector2[] poly)

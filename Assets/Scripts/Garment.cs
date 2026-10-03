@@ -74,6 +74,23 @@ namespace LaundryMonster
         /// which bench it is for, and the answer depends on the state as much as the kind.
         /// A lone sock goes to the drawer no matter how clean it is.
         /// </summary>
+        /// <summary>A plain word for this kind, for prompts like "Fold shirt".</summary>
+        public string KindName
+        {
+            get
+            {
+                switch (Kind)
+                {
+                    case GarmentKind.Shirt:    return "shirt";
+                    case GarmentKind.Pants:    return "pants";
+                    case GarmentKind.Towel:    return "towel";
+                    case GarmentKind.Sock:     return "sock";
+                    case GarmentKind.Delicate: return "delicate";
+                    default:                   return "laundry";
+                }
+            }
+        }
+
         public string NextStop
         {
             get

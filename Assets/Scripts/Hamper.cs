@@ -13,9 +13,13 @@ namespace LaundryMonster
 
         public override string ActionPrompt(PlayerController p)
         {
-            if (Waiting.Count == 0) return "";
-            return p.FreeSlots > 0 ? "pick up" : "hands full";
+            if (Waiting.Count == 0 || p.FreeSlots <= 0) return "";
+            return "Pick up laundry";
         }
+
+        public override string BlockedReason(PlayerController p) =>
+            Waiting.Count > 0 && p.FreeSlots <= 0
+                ? "Hands full - fold or dump something first" : "";
 
         public override void Interact(PlayerController p)
         {
@@ -26,6 +30,8 @@ namespace LaundryMonster
                 g.gameObject.SetActive(true);
                 p.Take(g);
                 SfxPlayer.Play(Sfx.PickUp, 0.8f);
+                var ha = p.GetComponent<HeroAnimator>();
+                if (ha != null) ha.Grab();
             }
         }
 

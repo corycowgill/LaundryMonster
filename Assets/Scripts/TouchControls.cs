@@ -37,7 +37,8 @@ namespace LaundryMonster
         Canvas _canvas;
         CanvasScaler _scaler;
         RectTransform _stickRing, _stickKnob, _actButton, _helpButton, _pauseButton;
-        Text _actLabel, _helpLabel, _pauseLabel;
+        RectTransform _stickHome, _stickHomeKnob;
+        Text _actLabel, _helpLabel, _pauseLabel, _stickHomeLabel;
         Sprite _disc;
 
         GameDirector _dir;
@@ -72,6 +73,19 @@ namespace LaundryMonster
             _scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             _scaler.referenceResolution = new Vector2(RefWidth, RefHeight);
             _scaler.matchWidthOrHeight = 0.5f;
+
+            // The resting stick: a target to aim the thumb at. The live stick still
+            // floats to wherever the thumb actually lands, because no fixed corner is
+            // right for every hand - but an invisible control is not a control.
+            _stickHome = MakeDisc(go.transform, "StickHome", StickRange * 1.05f,
+                                  new Color(1f, 1f, 1f, 0.10f));
+            _stickHomeKnob = MakeDisc(go.transform, "StickHomeKnob", StickRange * 0.46f,
+                                      new Color(1f, 1f, 1f, 0.22f));
+            // Centred in the ring rather than slung underneath it. Underneath put it
+            // straight through the Monster card in the same corner, and a label is only
+            // ever read while the stick is at rest - the moment a thumb lands the whole
+            // resting stick hands over to the live one and the word goes with it.
+            _stickHomeLabel = MakeLabel(_stickHome, "WALK", 34);
 
             _stickRing = MakeDisc(go.transform, "StickRing", StickRange * 1.05f,
                                   new Color(1f, 1f, 1f, 0.13f));
@@ -299,11 +313,91 @@ namespace LaundryMonster
             return any;
         }
 
-        Vector2 ActCentre() => new Vector2(RefWidth - ActRadius - 110f, ActRadius + 110f);
-        Vector2 HelpCentre() => new Vector2(RefWidth - HelpRadius - 60f, HelpRadius + 60f);
+        /// <summary>
+        /// The button says what pressing it will do. On a phone there is no key cap and
+        /// no hover, so a button reading "ACT" is the only control in the game whose
+        /// meaning the player has to reconstruct from the room every single time.
+        /// </summary>
+        void UpdateActLabel()
+        {
+            if (_player == null) _player = Object.FindAnyObjectByType<PlayerController>();
+            string face = "";
+            if (_player != null && _player.Nearest != null)
+                face = _player.Nearest.ButtonLabel(_player);
 
-        /// <summary>Bottom left, well away from the stick and the ACT button.</summary>
-        Vector2 PauseCentre() => new Vector2(PauseRadius + 46f, RefHeight - PauseRadius - 300f);
+            if (string.IsNullOrEmpty(face))
+            {
+                _actLabel.text = "ACT";
+                _actLabel.fontSize = 54;
+                _actButton.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.16f);
+                return;
+            }
+
+            _actLabel.text = face;
+            // Long verbs ("MATCH THE", "PUT AWAY") would otherwise spill off the disc.
+            _actLabel.fontSize = face.Length > 9 ? 34 : face.Length > 6 ? 42 : 54;
+            _actButton.GetComponent<Image>().color = new Color(0.15f, 0.85f, 0.65f, 0.42f);
+        }
+
+        PlayerController _player;
+
+        /// <summary>
+        /// The usable rectangle in reference-resolution units.
+        ///
+        /// Screen.safeArea is where the operating system promises nothing of its own
+        /// will be drawn: the notch, the rounded corners, the home indicator. Measuring
+        /// the controls from the physical edge instead put the pause button under the
+        /// status bar on a notched phone and the stick under the gesture bar.
+        /// </summary>
+        Rect Safe()
+        {
+            if (Screen.width <= 0 || Screen.height <= 0)
+                return new Rect(0f, 0f, RefWidth, RefHeight);
+
+            // Divide by the canvas's own scale factor, NOT by RefWidth/Screen.width.
+            // The scaler blends the two axes, so the canvas is 1920 units wide only on
+            // a 16:9 screen; on a 19.5:9 phone it is nearer 2120 and anything measured
+            // from the constant ends up a hundred units inboard of the edge it was
+            // supposed to hug. Scaling x and y separately was wrong for the same reason,
+            // and would have skewed a circular button into an ellipse of hit area.
+            float sf = _canvas != null && _canvas.scaleFactor > 0f ? _canvas.scaleFactor : 1f;
+            var sa = Screen.safeArea;
+            return new Rect(sa.x / sf, sa.y / sf, sa.width / sf, sa.height / sf);
+        }
+
+        Vector2 ActCentre()
+        {
+            var s = Safe();
+            return new Vector2(s.xMax - ActRadius - 90f, s.yMin + ActRadius + 90f);
+        }
+
+        Vector2 HelpCentre()
+        {
+            var s = Safe();
+            return new Vector2(s.xMax - HelpRadius - 56f, s.yMin + HelpRadius + 56f);
+        }
+
+        /// <summary>Top left, well away from the stick and the action button.</summary>
+        Vector2 PauseCentre()
+        {
+            var s = Safe();
+            return new Vector2(s.xMin + PauseRadius + 40f, s.yMax - PauseRadius - 40f);
+        }
+
+        /// <summary>
+        /// Where the resting stick sits: low and inboard, under a left thumb holding the
+        /// phone, and clear of the action bar that runs across the middle bottom.
+        /// </summary>
+        Vector2 StickHomeCentre()
+        {
+            var s = Safe();
+            // High enough to clear the Monster card, which occupies the same corner of
+            // the HUD: its top edge is at 140 and the ring's radius is StickRange * 1.05.
+            const float HudBottomLeftTop = 140f;
+            float y = Mathf.Max(s.yMin + StickRange + 70f,
+                                s.yMin + HudBottomLeftTop + StickRange * 1.05f + 16f);
+            return new Vector2(s.xMin + StickRange + 70f, y);
+        }
 
         void SetVisible(bool on)
         {
@@ -315,8 +409,23 @@ namespace LaundryMonster
             _stickRing.gameObject.SetActive(stick);
             _stickKnob.gameObject.SetActive(stick);
 
+            // The resting stick hands over to the live one the moment a thumb lands.
+            bool home = on && playing && !stick;
+            _stickHome.gameObject.SetActive(home);
+            _stickHomeKnob.gameObject.SetActive(home);
+            if (home)
+            {
+                var c = StickHomeCentre();
+                _stickHome.anchoredPosition = c;
+                _stickHomeKnob.anchoredPosition = c;
+            }
+
             _actButton.gameObject.SetActive(on && playing);
-            if (on && playing) _actButton.anchoredPosition = ActCentre();
+            if (on && playing)
+            {
+                _actButton.anchoredPosition = ActCentre();
+                UpdateActLabel();
+            }
 
             _helpButton.gameObject.SetActive(on && !playing);
             if (on && !playing) _helpButton.anchoredPosition = HelpCentre();

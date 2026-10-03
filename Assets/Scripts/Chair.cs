@@ -18,13 +18,16 @@ namespace LaundryMonster
 
         public override string ActionPrompt(PlayerController p)
         {
-            if (p.Carried.Count > 0) return "dump";
-            if (Pile.Count > 0 && p.FreeSlots > 0) return "pick up";
+            if (p.Carried.Count > 0)
+                return p.Carried.Count > 1 ? "Dump " + p.Carried.Count + " on the chair"
+                                           : "Dump it on the chair";
+            if (Pile.Count > 0 && p.FreeSlots > 0) return "Take from the chair";
             return "";
         }
 
         public override void Interact(PlayerController p)
         {
+            Squash.Pop(this, 0.18f);
             if (p.Carried.Count > 0)
             {
                 for (int i = p.Carried.Count - 1; i >= 0; i--)

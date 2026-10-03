@@ -312,7 +312,9 @@ namespace LaundryMonster
                     break;
 
                 case Phase.UpgradePick:
-                    HandleUpgradePick();
+                    // `go` is passed in rather than re-read. Reading the confirm twice in
+                    // one frame is free on a keyboard and destroys it on a touchscreen.
+                    HandleUpgradePick(go);
                     break;
 
                 case Phase.RunOver:
@@ -377,9 +379,9 @@ namespace LaundryMonster
             BeginDay(Day + 1);
         }
 
-        void HandleUpgradePick()
+        void HandleUpgradePick(bool confirmed)
         {
-            int choice = UpgradeChoicePressed();
+            int choice = UpgradeChoicePressed(confirmed);
             if (choice < 0 || choice >= Offered.Count) return;
 
             Kit.Grant(Offered[choice]);
@@ -394,7 +396,7 @@ namespace LaundryMonster
         /// Which of the three was chosen, or -1. Number keys, face buttons, or a tap on
         /// the card itself - the picker has to be usable on whatever is in your hands.
         /// </summary>
-        static int UpgradeChoicePressed()
+        static int UpgradeChoicePressed(bool confirmed)
         {
             var kb = UnityEngine.InputSystem.Keyboard.current;
             if (kb != null)
@@ -412,7 +414,9 @@ namespace LaundryMonster
                 if (gp.buttonEast.wasPressedThisFrame) return 2;
             }
 
-            if (GameInput.ConfirmPressed() && GameInput.Active == GameInput.Scheme.Touch)
+            // The tap was already claimed by the caller; `confirmed` is that claim
+            // handed down, not a second read of it.
+            if (confirmed && GameInput.Active == GameInput.Scheme.Touch)
             {
                 var hud = Object.FindAnyObjectByType<HUD>();
                 if (hud != null) return hud.UpgradeCardAt(GameInput.LastTapScreen);
