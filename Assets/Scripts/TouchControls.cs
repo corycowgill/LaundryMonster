@@ -46,7 +46,17 @@ namespace LaundryMonster
         int _moveTouchId = -1;
         Vector2 _moveOrigin;
         int _actTouchId = -1;
-        readonly System.Collections.Generic.HashSet<int> _menuClaimed = new System.Collections.Generic.HashSet<int>();
+        /// <summary>
+        /// Fingers already dealt with, by touch id.
+        ///
+        /// One contact must produce one action, and a touch slot does not cooperate: it
+        /// can report Began for several frames running, and it sits in Ended until the
+        /// next input update clears it. Without this, a single press on ACT fired when it
+        /// landed, again when it lifted, and then once more for every frame the Ended
+        /// lingered - which on a phone is an action repeating until you touch the screen
+        /// again. Entries are dropped the moment the slot stops reporting the finger.
+        /// </summary>
+        readonly System.Collections.Generic.HashSet<int> _tapClaimed = new System.Collections.Generic.HashSet<int>();
         readonly System.Collections.Generic.HashSet<int> _seenThisFrame = new System.Collections.Generic.HashSet<int>();
         float _lastTouchTime = -99f;
 
@@ -218,6 +228,15 @@ namespace LaundryMonster
                 int id = t.touchId.ReadValue();
                 Vector2 pos = t.position.ReadValue();
 
+                // Claim every finger the first time it is seen, whether it is landing or
+                // lifting. This is what makes one contact mean one action - see
+                // _tapClaimed. It has to happen before any branch below, because the
+                // gameplay controls and the menus are equally prone to reading the same
+                // finger twice.
+                seen.Add(id);
+                bool fresh = !_tapClaimed.Contains(id);
+                if (began || ended) _tapClaimed.Add(id);
+
                 // --- front end: a tap anywhere starts or continues ---
                 if (!playing)
                 {
@@ -228,7 +247,6 @@ namespace LaundryMonster
                     // three screens at once. Remembering only the LAST finger is not
                     // enough either: with two of them the guard alternates and fires every
                     // frame, which is how one tap on the help button ended up starting a run.
-                    seen.Add(id);
                     // A tap counts when the finger LANDS or when it LIFTS, whichever of
                     // the two this frame is the first to see.
                     //
@@ -243,9 +261,8 @@ namespace LaundryMonster
                     // Claiming by touch id keeps a normal tap from counting twice: the
                     // id is taken when the finger lands and the release finds it already
                     // spent.
-                    if ((began || ended) && !_menuClaimed.Contains(id))
+                    if (fresh && (began || ended))
                     {
-                        _menuClaimed.Add(id);
                         GameInput.LastTapScreen = pos;
                         if ((pos - helpCentreScreen).sqrMagnitude <= helpRadiusScreen * helpRadiusScreen)
                             GameInput.TouchHelpFrame = Time.frameCount;
@@ -257,7 +274,7 @@ namespace LaundryMonster
 
                 // --- pause, which is a tap rather than a hold ---
                 // Lands-or-lifts for the same reason as the menu taps above.
-                if ((began || (ended && id != _actTouchId && id != _moveTouchId))
+                if (fresh && (began || ended)
                     && (pos - pauseCentreScreen).sqrMagnitude
                        <= pauseRadiusScreen * pauseRadiusScreen)
                 {
@@ -290,11 +307,16 @@ namespace LaundryMonster
                     continue;
                 }
 
-                // A finger that arrived and left inside this one frame: the ACT button
-                // has to honour it for the same reason the menus do, or a brisk tap on a
-                // slow device does nothing at all.
-                bool quick = ended && id != _actTouchId && id != _moveTouchId;
-                if (!began && !quick) continue;
+                // Anything past here is a finger nothing else has claimed.
+                //
+                // A finger we have already handled must not be handled again, and a slot
+                // sitting in Ended reports it on every frame until the next input update.
+                // That is what turned one press of ACT into an action that kept firing.
+                if (!fresh || (!began && !ended)) continue;
+
+                // Arrived and left inside this one frame: honoured for the same reason
+                // the menus honour it, or a brisk tap on a slow device does nothing.
+                bool quick = ended;
 
                 // A new finger. Claim it for whichever control it landed on.
                 if ((pos - actCentreScreen).sqrMagnitude <= actRadiusScreen * actRadiusScreen
@@ -320,8 +342,8 @@ namespace LaundryMonster
                 }
             }
 
-            // Forget fingers that have lifted, so the same id can tap again later.
-            _menuClaimed.RemoveWhere(id => !seen.Contains(id));
+            // Forget fingers the screen has stopped reporting, so an id can be used again.
+            _tapClaimed.RemoveWhere(id => !seen.Contains(id));
 
             if (!moveStillDown)
             {

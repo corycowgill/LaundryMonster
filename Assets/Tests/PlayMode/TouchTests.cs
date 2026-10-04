@@ -259,5 +259,62 @@ namespace LaundryMonster.Tests
 
             Assert.IsTrue(_dir.Kit.Has(want), "a normal press-and-lift tap chose nothing");
         }
+
+        [UnityTest]
+        public IEnumerator AFingerThatLingersInEndedFiresOnlyOnce()
+        {
+            // The regression that arrived with the quick-tap fix.
+            //
+            // A touch slot does not go quiet the instant a finger lifts: it keeps
+            // reporting Ended until the next input update clears it, which on a slow
+            // device is several frames. The gameplay controls had no per-finger claim, so
+            // ACT fired when the finger landed, again when it lifted, and once more for
+            // every lingering frame after - an action repeating with nobody touching the
+            // screen. Reported from a phone as "I do not have to tap any more".
+            _dir.StartRun();
+            _dir.CurrentPhase = Phase.Playing;
+
+            // The hero reads the same one-shot once a frame and claims it, so he has to
+            // sit this out or the count below is his, not ours.
+            var hero = Object.FindAnyObjectByType<PlayerController>();
+            if (hero != null) hero.enabled = false;
+
+            yield return null;
+            var act = ActButtonCentre();
+            GameInput.InteractPressed();            // drain anything already pending
+
+            int fired = 0;
+            Finger(71, UnityEngine.InputSystem.TouchPhase.Began, act);
+            yield return null;
+            if (GameInput.InteractPressed()) fired++;
+
+            Finger(71, UnityEngine.InputSystem.TouchPhase.Ended, act);
+            yield return null;
+            if (GameInput.InteractPressed()) fired++;
+
+            // No further events. The slot simply keeps reporting what it last saw.
+            for (int i = 0; i < 4; i++)
+            {
+                yield return null;
+                if (GameInput.InteractPressed()) fired++;
+            }
+
+            if (hero != null) hero.enabled = true;
+
+            Assert.AreEqual(1, fired,
+                $"one press of ACT produced {fired} interactions - a finger that has "
+                + "lifted is still being counted on every frame the slot reports Ended");
+        }
+
+        /// <summary>Where TouchControls has actually put the ACT button, in screen pixels.</summary>
+        Vector2 ActButtonCentre()
+        {
+            var tc = Object.FindAnyObjectByType<TouchControls>();
+            var canvas = (Canvas)typeof(TouchControls).GetField("_canvas", Hidden).GetValue(tc);
+            float scale = canvas != null && canvas.scaleFactor > 0f ? canvas.scaleFactor : 1f;
+            var centre = (Vector2)typeof(TouchControls)
+                .GetMethod("ActCentre", Hidden).Invoke(tc, null);
+            return centre * scale;
+        }
     }
 }
