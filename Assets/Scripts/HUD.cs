@@ -826,7 +826,10 @@ namespace LaundryMonster
 
             var card = UiKit.Card(_summary.transform, "Card", UiKit.Cream, UiKit.Navy, 7f);
             UiKit.Place(card, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                        Vector2.zero, new Vector2(840f, 640f));
+                        // 720, not 640: the stats block can run to eleven lines - the streak and the
+                        // equipment lines are conditional, and the day's modifier is one more -
+                        // and at 640 the last of them sat under the action button.
+                        Vector2.zero, new Vector2(840f, 720f));
 
             _summaryTitle = Head(card, "DAY 1 COMPLETE", 56, TextAnchor.UpperCenter);
             _summaryTitle.rectTransform.offsetMax = new Vector2(0f, -36f);
@@ -853,9 +856,9 @@ namespace LaundryMonster
                 _stars.Add(star);
             }
 
-            _summaryStats = Body(card, "", 30, TextAnchor.UpperCenter);
-            _summaryStats.rectTransform.offsetMin = new Vector2(60f, 110f);
-            _summaryStats.rectTransform.offsetMax = new Vector2(-60f, -250f);
+            _summaryStats = Body(card, "", 28, TextAnchor.UpperCenter);
+            _summaryStats.rectTransform.offsetMin = new Vector2(60f, 124f);
+            _summaryStats.rectTransform.offsetMax = new Vector2(-60f, -238f);
 
             var action = UiKit.Card(card, "Next", UiKit.Yellow, UiKit.Navy, 5f);
             UiKit.Place(action, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
@@ -1124,6 +1127,11 @@ namespace LaundryMonster
 
             if (ph == Phase.Credits) UpdateCredits();
             if (front) UpdateFrontEnd(ph);
+
+            // Above the early return, because RunOver is not a playing phase. Below it,
+            // the game-over card was shown but never written: THE LAUNDRY WON was dead
+            // code, and a lost run sat under whatever the previous day's card had said.
+            if (ph == Phase.DaySummary || ph == Phase.RunOver) UpdateSummary();
             if (!playing) return;
 
             UpdateClock();
@@ -1135,7 +1143,6 @@ namespace LaundryMonster
             UpdateDeliveryPop();
             UpdateActionBar();
             UpdateFlash();
-            if (ph == Phase.DaySummary || ph == Phase.RunOver) UpdateSummary();
         }
 
         static void SetActive(GameObject go, bool on)
@@ -1590,6 +1597,21 @@ namespace LaundryMonster
             return "\n\nONE STAR EARNED - pick a piece of equipment next";
         }
 
+        /// <summary>
+        /// One line naming the day's modifier, or nothing on an ordinary day.
+        ///
+        /// The briefing card explained the rule before the day; the chip kept it on
+        /// screen during it. Without this the summary was the one screen that forgot,
+        /// and "why was that so hard" went unanswered at exactly the moment it was asked.
+        /// </summary>
+        string ModifierLine(string label, bool trailing = false)
+        {
+            string name = DayModifiers.ShortName(_dir.Today.Mod);
+            if (string.IsNullOrEmpty(name)) return "";
+            string line = label + name;
+            return trailing ? line + "\n" : "\n" + line;
+        }
+
         void UpdateSummary()
         {
             bool over = _dir.CurrentPhase == Phase.RunOver;
@@ -1605,12 +1627,14 @@ namespace LaundryMonster
                     "days survived  " + _dir.Day + "\n" +
                     "put away       " + _dir.RunDelivered + "\n" +
                     "stars earned   " + _dir.RunStars +
+                    ModifierLine("lost on        ") +
                     (_dir.NewRecord ? "\n\nA NEW PERSONAL BEST" : "");
                 _summaryAction.text = GameInput.ConfirmGlyph + "   back to title";
             }
             else
             {
                 _summaryStats.text =
+                    ModifierLine("today       ", trailing: true) +
                     "put away    " + _dir.Delivered + "\n" +
                     "score       " + _dir.Score.ToString("0.#") + " / " + _dir.Target.ToString("0.#")
                         + "   (stars are scored on this)\n" +

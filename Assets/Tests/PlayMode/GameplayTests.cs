@@ -298,6 +298,37 @@ namespace LaundryMonster.Tests
             Assert.IsFalse(_dir.IsRunning, "the world should be frozen behind the card");
         }
 
+        // ================= the game-over card =================
+
+        [UnityTest]
+        public IEnumerator LosingTheRunShowsTheGameOverCardNotYesterdays()
+        {
+            // The summary panel served both the day summary and the game-over screen,
+            // and the HUD only refreshed it inside the "playing" branch - which RunOver
+            // is not. So the panel appeared on a lost run with whatever text it had last
+            // been given: the previous day's DAY N COMPLETE, or nothing at all on a day
+            // one loss. THE LAUNDRY WON was never once on screen.
+            var hud = Object.FindAnyObjectByType<HUD>();
+            var title = (UnityEngine.UI.Text)typeof(HUD)
+                .GetField("_summaryTitle", System.Reflection.BindingFlags.NonPublic
+                                           | System.Reflection.BindingFlags.Instance)
+                .GetValue(hud);
+
+            // Yesterday's card, written the normal way.
+            _dir.CurrentPhase = Phase.DaySummary;
+            yield return null;
+            yield return null;
+            StringAssert.Contains("COMPLETE", title.text, "the day summary did not render");
+
+            // Then the run is lost.
+            _dir.CurrentPhase = Phase.RunOver;
+            yield return null;
+            yield return null;
+
+            Assert.AreEqual("THE LAUNDRY WON", title.text,
+                "a lost run is showing the previous day's summary instead of the game-over card");
+        }
+
         // ================= scoring =================
 
         [UnityTest]
