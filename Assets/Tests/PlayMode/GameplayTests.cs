@@ -459,6 +459,65 @@ namespace LaundryMonster.Tests
         }
 
         [UnityTest]
+        public IEnumerator ClosingOnTheResultsScreenKeepsTheFinishedDay()
+        {
+            // The first checkpoint was the start of a day, which meant closing the tab
+            // on the results screen - the likeliest moment of all - lost the day that
+            // had just been finished, and the upgrade pick after it. The day's end is a
+            // checkpoint too, and resuming from it lands on that day's summary with its
+            // own numbers, the totals already banked, and the pick still to come.
+            _dir.StartRun();
+            _dir.BeginDay(6);
+            var completed = _dir.Day;
+            var modifier = _dir.Today.Mod;
+            _dir.Score = 9.5f;
+            _dir.Delivered = 11;
+            _dir.WrinkledCount = 2;
+
+            typeof(GameDirector).GetMethod("EndDay",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                .Invoke(_dir, null);
+            yield return null;
+
+            Assert.AreEqual(Phase.DaySummary, _dir.CurrentPhase);
+            var stars = _dir.Stars;
+            var runScore = _dir.RunScore;
+            Assert.IsTrue(_dir.HasSavedRun, "finishing a day left no checkpoint");
+            Assert.AreEqual(completed + 1, _dir.SavedDay, "the title should offer the NEXT day");
+
+            // A reload: everything live is gone, the save is not.
+            _dir.Score = 0f;
+            _dir.Delivered = 0;
+            _dir.WrinkledCount = 0;
+            _dir.RunScore = 0f;
+            _dir.Day = 1;
+            _dir.CurrentPhase = Phase.Title;
+            yield return null;
+
+            _dir.ContinueRun();
+            yield return null;
+
+            Assert.AreEqual(Phase.DaySummary, _dir.CurrentPhase,
+                "resuming from a finished day should land on its results screen");
+            Assert.AreEqual(completed, _dir.Day, "the summary is for the wrong day");
+            Assert.AreEqual(modifier, _dir.Today.Mod, "the finished day's modifier changed");
+            Assert.AreEqual(9.5f, _dir.Score, 0.001f, "the day's score did not come back");
+            Assert.AreEqual(11, _dir.Delivered, "the day's deliveries did not come back");
+            Assert.AreEqual(2, _dir.WrinkledCount);
+            Assert.AreEqual(stars, _dir.Stars, "the stars did not come back");
+            Assert.AreEqual(runScore, _dir.RunScore, 0.001f, "the run total was counted twice or not at all");
+
+            // And the ordinary flow carries on from here into the next day.
+            typeof(GameDirector).GetMethod("AdvanceFromSummary",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                .Invoke(_dir, null);
+            yield return null;
+            Assert.IsTrue(_dir.CurrentPhase == Phase.UpgradePick || _dir.Day == completed + 1,
+                $"after the summary the game should offer a pick or start day {completed + 1}, "
+                + $"not sit in {_dir.CurrentPhase} on day {_dir.Day}");
+        }
+
+        [UnityTest]
         public IEnumerator LosingTheRunForgetsIt()
         {
             _dir.StartRun();

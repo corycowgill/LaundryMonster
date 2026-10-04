@@ -18,12 +18,14 @@ namespace LaundryMonster
     public static class RunSave
     {
         const string Key = "LaundryMonster.run";
-        const int Version = 1;
+        const int Version = 2;
 
         [System.Serializable]
         public class Data
         {
             public int version = Version;
+
+            /// <summary>The day a resume plays next.</summary>
             public int day;
             public int seed;
             public float monster;
@@ -35,6 +37,22 @@ namespace LaundryMonster
             public int carryPenalty;
             public int[] dryerLint = new int[0];
             public int[] owned = new int[0];
+
+            // A checkpoint taken at the END of a day, on its summary. The run totals
+            // above already include that day; what follows is the day itself, so the
+            // summary can be shown again and the upgrade pick that follows it is not
+            // lost. Closing the tab on the results screen is the likeliest moment of
+            // all to close it, and without this it cost the day just finished.
+            public bool atSummary;
+            public int completedDay;
+            public int garmentsToday;
+            public float dayScore;
+            public float dayBonus;
+            public int dayDelivered;
+            public int dayWrinkled;
+            public int dayMildewed;
+            public int dayBestStreak;
+            public int dayStars;
         }
 
         static Data _cached;

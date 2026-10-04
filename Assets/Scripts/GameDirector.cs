@@ -357,11 +357,41 @@ namespace LaundryMonster
             return list.ToArray();
         }
 
+        /// <summary>Start-of-day checkpoint: resume by replaying this day.</summary>
         void SaveRun()
+        {
+            var d = Snapshot();
+            d.day = Day;
+            d.atSummary = false;
+            RunSave.Save(d);
+        }
+
+        /// <summary>
+        /// End-of-day checkpoint: resume on this day's summary, totals already banked,
+        /// and go on to the pick and the next day from there.
+        /// </summary>
+        void SaveAtSummary()
+        {
+            var d = Snapshot();
+            d.day = Day + 1;
+            d.atSummary = true;
+            d.completedDay = Day;
+            d.garmentsToday = GarmentsToday;
+            d.dayScore = Score;
+            d.dayBonus = BonusScore;
+            d.dayDelivered = Delivered;
+            d.dayWrinkled = WrinkledCount;
+            d.dayMildewed = MildewedCount;
+            d.dayBestStreak = BestStreakToday;
+            d.dayStars = Stars;
+            RunSave.Save(d);
+        }
+
+        /// <summary>Everything a run is, apart from which day and where in it.</summary>
+        RunSave.Data Snapshot()
         {
             var d = new RunSave.Data
             {
-                day = Day,
                 seed = _runSeed,
                 monster = Monster,
                 runScore = RunScore,
@@ -382,7 +412,7 @@ namespace LaundryMonster
             foreach (var id in Kit.Owned) owned.Add((int)id);
             d.owned = owned.ToArray();
 
-            RunSave.Save(d);
+            return d;
         }
 
         /// <summary>
@@ -417,7 +447,28 @@ namespace LaundryMonster
             for (int i = 0; i < dryers.Length && i < d.dryerLint.Length; i++)
                 dryers[i].Lint = d.dryerLint[i];
 
-            BeginDay(d.day);
+            if (!d.atSummary)
+            {
+                BeginDay(d.day);
+                return;
+            }
+
+            // Back onto the results screen of the day that was finished. The totals are
+            // already in the run; this is the day's own numbers, so the card reads as it
+            // did, and the ordinary flow takes over from the confirm - the pick, then
+            // BeginDay for the next day, which writes the next checkpoint.
+            Day = d.completedDay;
+            Today = DayModifiers.PlanFor(DayModifiers.For(Day, _runSeed));
+            GarmentsToday = d.garmentsToday;
+            Score = d.dayScore;
+            BonusScore = d.dayBonus;
+            Delivered = d.dayDelivered;
+            WrinkledCount = d.dayWrinkled;
+            MildewedCount = d.dayMildewed;
+            BestStreakToday = d.dayBestStreak;
+            Stars = d.dayStars;
+            DayTimer = DayLength = Tuning.DayLength(Day) * Today.LengthScale;
+            CurrentPhase = Phase.DaySummary;
         }
 
         void Update()
@@ -762,6 +813,11 @@ namespace LaundryMonster
             else Stars = 0;
 
             RunStars += Stars;
+
+            // The likeliest moment to close the tab is the results screen. Checkpoint
+            // here as well, so coming back lands on this summary rather than replaying
+            // the day that was just finished.
+            SaveAtSummary();
 
             // The closing charge can be what finally finishes a run.
             if (Monster >= Tuning.MonsterMax) { EndRun(); return; }
