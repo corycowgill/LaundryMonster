@@ -196,7 +196,18 @@ namespace LaundryMonster
         // HUD says so.
         public const float TravelAllowance = 20f;
 
-        public static float FinishWindow => WashCycle + DryCycle + FoldHold + TravelAllowance;
+        public static float FinishWindow => FinishWindowFor(1f, 1f);
+
+        /// <summary>
+        /// The finish window for a day whose cycles run at these scales.
+        ///
+        /// On a rainy weekend the dryers run at 1.45x, and a window computed from the
+        /// unmodified constant let the last garments arrive with less time than a dry
+        /// cycle takes - the day was unwinnable at the end by construction, and nothing
+        /// in the day told the player why.
+        /// </summary>
+        public static float FinishWindowFor(float washScale, float dryScale) =>
+            WashCycle * washScale + DryCycle * dryScale + FoldHold + TravelAllowance;
 
         // The Monster IS the hamper: dirty laundry is pulled off it, so it is big, and
         // it visibly shrinks as you clear the backlog.
@@ -212,11 +223,15 @@ namespace LaundryMonster
         /// How long arrivals keep coming. Never less than a third of the day, so a short
         /// day cannot collapse into "everything arrives at once".
         /// </summary>
-        public static float ArrivalWindow(int day)
-        {
-            float len = DayLength(day);
-            return Mathf.Max(len * 0.34f, len - FinishWindow);
-        }
+        public static float ArrivalWindow(int day) => ArrivalWindow(DayLength(day), 1f, 1f);
+
+        /// <summary>
+        /// For a day of this actual length whose cycles run at these scales. The length
+        /// is passed in rather than derived from the day, because a modifier can
+        /// change that too.
+        /// </summary>
+        public static float ArrivalWindow(float length, float washScale, float dryScale) =>
+            Mathf.Max(length * 0.34f, length - FinishWindowFor(washScale, dryScale));
 
         /// <summary>What share of the laundry that arrives has to be put away.</summary>
         public const float TargetShare = 0.8f;

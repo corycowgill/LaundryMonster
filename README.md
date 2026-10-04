@@ -26,9 +26,10 @@ Verified in Play mode, not assumed.
 | socks / the Sock Void | working - match in hand, or leave a sock at the drawer for its partner |
 | pause | working - Esc/P, Start, or the on-screen button; the world stops |
 | closing penalty | working - unfinished laundry feeds the Monster at the end of the day |
+| daily modifiers (day 6+) | working - six twists dealt from a shuffled bag, each changing the shape of a day rather than its size |
 | darks/whites separation | not built |
 | audio | working - synthesised in code, no sound files |
-| art | AI-generated: FLUX textures + TRELLIS 3D models for machines, hamper, chair, closet |
+| art | one chunky procedural style - every prop and the Monster built from rounded boxes; TRELLIS model for the hero; FLUX textures; wall posters generated with ChatGPT |
 
 Controls adapt to the device you are using, and the HUD names the right button.
 

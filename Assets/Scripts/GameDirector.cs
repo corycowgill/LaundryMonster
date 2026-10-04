@@ -310,7 +310,10 @@ namespace LaundryMonster
             // Arrivals stop one full pipeline before the end, so the last garment of the
             // day can actually be washed, dried, folded and delivered. What remains is the
             // finishing period.
-            float window = Tuning.ArrivalWindow(day);
+            // The day's own length and cycle speeds, not the day number's: a modifier
+            // may have changed both, and arrivals have to stop one REAL pipeline before
+            // the end or the last of them cannot be finished.
+            float window = Tuning.ArrivalWindow(DayLength, Today.WashScale, Today.DryScale);
             for (int i = 0; i < count; i++)
                 _spawnTimes.Add(window * (i / (float)Mathf.Max(1, count - 1)));
         }
