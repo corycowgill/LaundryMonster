@@ -174,6 +174,16 @@ namespace LaundryMonster
         public DayModifiers.Plan Today { get; private set; } = DayModifiers.Plan.Normal;
 
         /// <summary>
+        /// What tomorrow will be, known today.
+        ///
+        /// The modifiers are dealt from a seeded bag, so tomorrow is not a secret - and
+        /// the one place the player makes a decision between days is the upgrade picker.
+        /// A basket is worth more before a day of walking; a spray before a guest. Shown
+        /// there, the forecast turns a pick from a guess into a plan.
+        /// </summary>
+        public DayModifiers.Modifier Tomorrow => DayModifiers.For(Day + 1, _runSeed);
+
+        /// <summary>
         /// Seeds the order modifiers are dealt in, so two runs are not the same run.
         /// Set once when a run starts and left alone, which keeps a day reproducible
         /// within its own run - the day does not change shape because you paused.

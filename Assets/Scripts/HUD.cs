@@ -969,8 +969,9 @@ namespace LaundryMonster
             var sub2 = Body(_picker.transform, "a good day earns one piece of equipment",
                             28, TextAnchor.UpperCenter, UiKit.Yellow);
             _pickHint = sub2;
+            // Two lines tall: the second carries tomorrow's forecast.
             UiKit.Place(sub2.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                        new Vector2(0f, -156f), new Vector2(1200f, 44f));
+                        new Vector2(0f, -156f), new Vector2(1200f, 84f));
 
             const float w = 480f, h = 420f, gap = 36f;
             for (int i = 0; i < Tuning.UpgradeChoices; i++)
@@ -1010,9 +1011,21 @@ namespace LaundryMonster
         {
             var dir = _dir;
             if (_pickHint != null)
-                _pickHint.text = GameInput.Active == GameInput.Scheme.Touch
+            {
+                string hint = GameInput.Active == GameInput.Scheme.Touch
                     ? "tap a card to take it"
                     : "a good day earns one piece of equipment";
+
+                // Tomorrow's modifier, because this is the one decision made between
+                // days and the modifiers are dealt in advance. A basket is worth more
+                // before a day of walking, a spray before a guest; without the forecast
+                // the pick is a guess about a day the player cannot see.
+                string next = DayModifiers.ShortName(_dir.Tomorrow);
+                if (!string.IsNullOrEmpty(next))
+                    hint += "\n" + "tomorrow:  " + next;
+
+                _pickHint.text = hint;
+            }
             for (int i = 0; i < _pickCards.Count; i++)
             {
                 bool used = i < dir.Offered.Count;

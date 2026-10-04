@@ -325,6 +325,28 @@ namespace LaundryMonster.Tests
             _player.Carried.Clear();
         }
 
+        // ================= tomorrow's forecast =================
+
+        [UnityTest]
+        public IEnumerator TheForecastIsWhatTomorrowTurnsOutToBe()
+        {
+            // The picker shows tomorrow's modifier so the pick can be a plan. A forecast
+            // that is ever wrong is worse than none: the player picks for a day that does
+            // not come. Across a whole cycle, what Tomorrow said must be what BeginDay
+            // then dealt - including the first modifier day, forecast from the last
+            // tutorial day, and the seam between one bag and the next.
+            _dir.StartRun();
+            for (int day = DayModifiers.FirstDay - 1; day < DayModifiers.FirstDay + 7; day++)
+            {
+                _dir.BeginDay(day);
+                var said = _dir.Tomorrow;
+                _dir.BeginDay(day + 1);
+                yield return null;
+                Assert.AreEqual(said, _dir.Today.Mod,
+                    $"on day {day} the forecast said {said}, and day {day + 1} was {_dir.Today.Mod}");
+            }
+        }
+
         // ================= the game-over card =================
 
         [UnityTest]
