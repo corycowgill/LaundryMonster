@@ -1295,7 +1295,14 @@ namespace LaundryMonster
                               && _dir.Day <= Tuning.DaySocks
                               && !string.IsNullOrEmpty(Briefings.Hint(_dir.Day, _player));
 
-            SetActive(_objective.gameObject, teaching || dayOneHint);
+            bool objectiveUp = teaching || dayOneHint;
+            SetActive(_objective.gameObject, objectiveUp);
+
+            // The modifier chip sits under the objective card while there is one, and
+            // moves up into its place when there is not. Left at the lower spot it hung
+            // in mid-air across the tops of the machines with nothing above it.
+            if (_modChip != null)
+                _modChip.anchoredPosition = new Vector2(0f, objectiveUp ? -138f : -16f);
             if (!teaching && !dayOneHint) return;
 
             SetActive(_skipChip.gameObject, teaching);
@@ -1355,7 +1362,22 @@ namespace LaundryMonster
                 bool washer = m.MachineMode == LaundryMachine.Mode.Washer;
                 var accent = washer ? UiKit.Blue : UiKit.Orange;
 
-                if (m.Offline)
+                if (m.OutOfOrder)
+                {
+                    // Dead for the day, as a fact about today rather than a consequence
+                    // of anything the player did. Grey, not red: red is the colour of
+                    // something that needs doing, and nothing can be done about this.
+                    // Four letters. The pill is sized for EMPTY and ON FIRE, and a longer
+                    // word runs off the end of it: OUT OF ORDER showed as a tail of DER.
+                    b.Status.text = "DEAD";
+                    // Grey, not navy: the badge text is navy and never changes, so on a
+                    // navy pill the word simply disappeared.
+                    b.Pill.color = UiKit.Grey;
+                    SetActive(b.Pill.gameObject, true);
+                    b.RingFill.fillAmount = 0f;
+                    UiKit.SetCardColors(b.Root, UiKit.CreamDim, UiKit.NavyDeep);
+                }
+                else if (m.Offline)
                 {
                     b.Status.text = "ON FIRE";
                     b.Pill.color = UiKit.Red;
