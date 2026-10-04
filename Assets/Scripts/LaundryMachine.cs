@@ -167,6 +167,9 @@ namespace LaundryMonster
         public override string BlockedReason(PlayerController p)
         {
             string me = MachineMode == Mode.Washer ? "washer" : "dryer";
+            // A dead dryer is a fact about today, not a fire: it does not come back by
+            // itself, and telling the player it will sends them off to wait for it.
+            if (OutOfOrder) return "Dead for the day - use the other dryer";
             if (Offline) return "On fire - it comes back by itself";
             if (Running) return "";
             if (HasFinishedLoad)
@@ -537,6 +540,12 @@ namespace LaundryMonster
                 // Pulse: a finished machine should nag you.
                 float pulse = 0.5f + 0.5f * Mathf.Sin(Time.time * 6f);
                 _bar.Set(1f, Color.Lerp(new Color(0.95f, 0.75f, 0.1f), Color.white, pulse));
+            }
+            else if (OutOfOrder)
+            {
+                // Steady and grey, like its badge. Pulsing fire colours on a machine
+                // that is not on fire is the same wrong story the prompt used to tell.
+                _bar.Set(1f, new Color(0.55f, 0.55f, 0.58f));
             }
             else if (Offline)
             {

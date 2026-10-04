@@ -298,6 +298,33 @@ namespace LaundryMonster.Tests
             Assert.IsFalse(_dir.IsRunning, "the world should be frozen behind the card");
         }
 
+        // ================= a dryer that is dead for the day =================
+
+        [UnityTest]
+        public IEnumerator ADeadDryerSaysSoAndDoesNotPromiseToComeBack()
+        {
+            // The dead dryer shares Offline with the burnt-out one, and every prompt that
+            // keyed on Offline told the player it was on fire and would come back by
+            // itself. For the day's modifier neither is true, and "wait for it" is the
+            // one plan that cannot work.
+            var dryer = FindMachine(LaundryMachine.Mode.Dryer);
+            dryer.Contents.Clear();
+            dryer.OutOfOrder = true;
+
+            _player.Carried.Clear();
+            _player.Take(MakeGarment(GarmentState.Wet));
+            yield return null;
+
+            Assert.IsEmpty(dryer.ActionPrompt(_player), "a dead dryer offered an action");
+            var why = dryer.BlockedReason(_player).ToLowerInvariant();
+            StringAssert.DoesNotContain("fire", why, "a dead dryer claims to be on fire");
+            StringAssert.DoesNotContain("comes back", why, "a dead dryer promises to recover");
+            StringAssert.Contains("dead", why, "a dead dryer does not say what it is");
+
+            dryer.OutOfOrder = false;
+            _player.Carried.Clear();
+        }
+
         // ================= the game-over card =================
 
         [UnityTest]
