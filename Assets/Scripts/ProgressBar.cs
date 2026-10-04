@@ -54,9 +54,8 @@ namespace LaundryMonster
 
         Renderer MakeQuadOn(GameObject go, Vector3 scale, Color color)
         {
-            var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            var quad = Prim.Make(PrimitiveType.Quad);
             quad.name = "quad";
-            Destroy(quad.GetComponent<Collider>());
             quad.transform.SetParent(go.transform, false);
             quad.transform.localScale = scale;
 

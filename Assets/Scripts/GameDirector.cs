@@ -732,13 +732,11 @@ namespace LaundryMonster
             }
             else
             {
-                go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                go = Prim.Make(PrimitiveType.Cube);
                 go.name = "Garment_" + kind;
                 go.transform.localScale = kind == GarmentKind.Sock
                     ? new Vector3(0.22f, 0.10f, 0.30f)
                     : new Vector3(0.46f, 0.13f, 0.36f);
-                var col = go.GetComponent<Collider>();
-                if (col != null) Destroy(col);
                 rend = go.GetComponent<Renderer>();
             }
 

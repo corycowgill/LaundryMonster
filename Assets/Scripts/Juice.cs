@@ -84,10 +84,8 @@ namespace LaundryMonster
 
             for (int i = 0; i < count; i++)
             {
-                var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                var go = Prim.Make(PrimitiveType.Cube);
                 go.name = "Confetti";
-                var col = go.GetComponent<Collider>();
-                if (col != null) Destroy(col);
 
                 var rend = go.GetComponent<Renderer>();
                 rend.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;

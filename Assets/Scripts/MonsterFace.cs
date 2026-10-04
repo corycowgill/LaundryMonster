@@ -81,14 +81,14 @@ namespace LaundryMonster
             root.SetParent(transform, false);
             root.localPosition = at;
 
-            var white = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            var white = Prim.Make(PrimitiveType.Sphere);
             white.name = "Sclera";
             Strip(white);
             white.transform.SetParent(root, false);
             white.transform.localScale = new Vector3(0.19f, 0.19f, 0.19f);
             sclera = Unlit(white, Calm);
 
-            var dot = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            var dot = Prim.Make(PrimitiveType.Sphere);
             dot.name = "Pupil";
             Strip(dot);
             dot.transform.SetParent(root, false);
@@ -103,8 +103,6 @@ namespace LaundryMonster
 
         static void Strip(GameObject go)
         {
-            var c = go.GetComponent<Collider>();
-            if (c != null) Destroy(c);
             var r = go.GetComponent<Renderer>();
             r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             r.receiveShadows = false;

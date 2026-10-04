@@ -57,10 +57,8 @@ namespace LaundryMonster
             else if (rp != null && rp.defaultMaterial != null) mat = new Material(rp.defaultMaterial);
             else return;
 
-            var disc = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            var disc = Prim.Make(PrimitiveType.Cylinder);
             disc.name = "HighlightPad";
-            var col = disc.GetComponent<Collider>();
-            if (col != null) Destroy(col);
 
             _pad = disc.transform;
             // Sibling, not child: the Monster is scaled and rotated every frame by its
