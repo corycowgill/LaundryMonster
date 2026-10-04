@@ -202,9 +202,10 @@ namespace LaundryMonster
         /// The finish window for a day whose cycles run at these scales.
         ///
         /// On a rainy weekend the dryers run at 1.45x, and a window computed from the
-        /// unmodified constant let the last garments arrive with less time than a dry
-        /// cycle takes - the day was unwinnable at the end by construction, and nothing
-        /// in the day told the player why.
+        /// unmodified constant quietly spent a third of the walking allowance the last
+        /// garments were supposed to have. Not unwinnable - the allowance absorbed it -
+        /// but the end of a rainy day was tighter than designed, for no reason the
+        /// player could see.
         /// </summary>
         public static float FinishWindowFor(float washScale, float dryScale) =>
             WashCycle * washScale + DryCycle * dryScale + FoldHold + TravelAllowance;

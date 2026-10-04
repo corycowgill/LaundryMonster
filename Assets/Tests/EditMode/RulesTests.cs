@@ -75,9 +75,11 @@ namespace LaundryMonster.Tests
             // A garment arriving at the cutoff has to survive a wash, a dry and a fold,
             // with walking in between. If this fails the day is unwinnable by design.
             //
-            // Checked under every modifier, because the one that bit was the rainy
-            // weekend: dryers at 1.45x, and a cutoff still computed from the unmodified
-            // dry time. The last arrivals had less time than one dry cycle.
+            // Checked under every modifier, and for the WALKING allowance too, not merely
+            // for the pipeline: the rainy weekend ran dryers at 1.45x against a cutoff
+            // computed from the unmodified dry time, and the last arrivals lost a third
+            // of their walking slack. The pipeline still fit, which is exactly why a test
+            // that only checked the pipeline could not notice.
             foreach (DayModifiers.Modifier m in System.Enum.GetValues(typeof(DayModifiers.Modifier)))
             {
                 var p = DayModifiers.PlanFor(m);
@@ -89,9 +91,9 @@ namespace LaundryMonster.Tests
                 {
                     float length = Tuning.DayLength(day) * p.LengthScale;
                     float finishing = length - Tuning.ArrivalWindow(length, p.WashScale, p.DryScale);
-                    Assert.GreaterOrEqual(finishing, pipeline,
+                    Assert.GreaterOrEqual(finishing, pipeline + Tuning.TravelAllowance - 0.01f,
                         $"{m} on day {day} leaves {finishing:0.0}s to finish a "
-                        + $"{pipeline:0.0}s pipeline");
+                        + $"{pipeline:0.0}s pipeline plus {Tuning.TravelAllowance:0}s of walking");
                 }
             }
         }
