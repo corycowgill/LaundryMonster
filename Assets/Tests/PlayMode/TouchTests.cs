@@ -396,6 +396,48 @@ namespace LaundryMonster.Tests
                 "the hero kept walking after the thumb came off the stick");
         }
 
+        [UnityTest]
+        public IEnumerator HoldingActReadsAsHeldUntilTheThumbLifts()
+        {
+            // The hold interactions - checking pockets, emptying a lint trap - read
+            // InteractHeld() every frame and time it. On a phone that comes from the
+            // thumb resting on ACT, and the slot reports Stationary, not Began, for all
+            // but the first frame of it. Edge detection ignores an unchanged slot by
+            // design, so the owned-finger branch is the only thing keeping the hold
+            // alive. Nothing else tests it, and if it slips the pockets and the traps
+            // stop working on the phone with every other test green.
+            _dir.StartRun();
+            _dir.CurrentPhase = Phase.Playing;
+            var hero = Object.FindAnyObjectByType<PlayerController>();
+            if (hero != null) hero.enabled = false;
+            yield return null;
+
+            var act = ActButtonCentre();
+            Finger(95, UnityEngine.InputSystem.TouchPhase.Began, act);
+            yield return null;
+            Finger(95, UnityEngine.InputSystem.TouchPhase.Stationary, act);
+
+            // Held, frame after frame, with the slot saying nothing new.
+            int heldFrames = 0;
+            for (int i = 0; i < 6; i++)
+            {
+                yield return null;
+                if (GameInput.InteractHeld()) heldFrames++;
+            }
+
+            Finger(95, UnityEngine.InputSystem.TouchPhase.Ended, act);
+            yield return null;
+            yield return null;
+            bool stillHeld = GameInput.InteractHeld();
+
+            if (hero != null) hero.enabled = true;
+
+            Assert.AreEqual(6, heldFrames,
+                $"a thumb resting on ACT read as held on {heldFrames} of 6 frames - the hold "
+                + "interactions are timing a press that keeps dropping out");
+            Assert.IsFalse(stillHeld, "ACT still reads as held after the thumb lifted");
+        }
+
         /// <summary>Where TouchControls has actually put the ACT button, in screen pixels.</summary>
         Vector2 ActButtonCentre()
         {

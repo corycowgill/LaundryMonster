@@ -655,7 +655,7 @@ namespace LaundryMonster
             // Earning a star is worth a cheer; scraping through on zero is not.
             if (Stars > 0)
             {
-                var hero = FindFirstObjectByType<HeroAnimator>();
+                var hero = FindAnyObjectByType<HeroAnimator>();
                 if (hero != null) hero.Celebrate();
             }
         }
