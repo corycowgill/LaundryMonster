@@ -41,6 +41,8 @@ namespace LaundryMonster
         // top centre
         RectTransform _objective;
         Text _objectiveTitle, _objectiveBody;
+        RectTransform _modChip;
+        Text _modText;
         readonly List<Image> _steps = new List<Image>();
         RectTransform _skipChip;
         Text _skipKey;
@@ -108,7 +110,7 @@ namespace LaundryMonster
 
         // briefing
         GameObject _briefing;
-        Text _briefTitle, _briefBody, _briefAction;
+        Text _briefTitle, _briefBody, _briefAction, _briefRibbon;
 
         // credits
         Text _creditsText, _creditsHint;
@@ -286,6 +288,19 @@ namespace LaundryMonster
             _objective = UiKit.Card(parent, "Objective", UiKit.Cream, UiKit.Navy, 7f);
             UiKit.Place(_objective, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                         new Vector2(0f, -14f), new Vector2(1000f, 116f));
+
+            // What is different about today, directly under the objective and in a
+            // colour nothing else in the HUD uses.
+            //
+            // The briefing card explains the modifier once, before the day starts,
+            // and is then gone. Five minutes later, mid-panic, "why is this dryer so
+            // slow" is a question the HUD should be able to answer without the player
+            // having to remember a card they read before the clock started.
+            _modChip = UiKit.Card(parent, "Modifier", UiKit.Yellow, UiKit.Navy, 5f);
+            UiKit.Place(_modChip, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                        new Vector2(0f, -138f), new Vector2(520f, 44f));
+            _modText = Head(_modChip, "", 24, TextAnchor.MiddleCenter);
+            _modChip.gameObject.SetActive(false);
 
             // Left-aligned, because the text block no longer owns the whole card.
             _objectiveTitle = Head(_objective, "", 28, TextAnchor.UpperLeft);
@@ -875,9 +890,9 @@ namespace LaundryMonster
             var ribbon = UiKit.Block(card, "Ribbon", UiKit.Yellow, UiKit.Card9);
             UiKit.Place(ribbon.rectTransform, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
                         new Vector2(0f, -28f), new Vector2(330f, 50f));
-            var ribbonText = Body(ribbon.transform, "NEW TODAY", 26, TextAnchor.MiddleCenter);
-            ribbonText.rectTransform.anchorMin = Vector2.zero;
-            ribbonText.rectTransform.anchorMax = Vector2.one;
+            _briefRibbon = Body(ribbon.transform, "NEW TODAY", 26, TextAnchor.MiddleCenter);
+            _briefRibbon.rectTransform.anchorMin = Vector2.zero;
+            _briefRibbon.rectTransform.anchorMax = Vector2.one;
 
             _briefTitle = Head(card, "", 58, TextAnchor.UpperCenter);
             _briefTitle.rectTransform.offsetMax = new Vector2(0f, -92f);
@@ -898,13 +913,30 @@ namespace LaundryMonster
 
         void UpdateBriefing()
         {
-            var card = Briefings.For(_dir.PendingUnlock);
-            _briefTitle.text = card.Title;
+            // Two kinds of card share this panel, and they are different promises.
+            // A system briefing is a rule that holds for the rest of the run; a
+            // modifier is true today and gone tomorrow. The ribbon says which,
+            // because a player who files "wrinkled is worth nothing" as permanent
+            // will play the next four days wrong.
+            if (_dir.PendingUnlock != Tuning.Unlock.None)
+            {
+                var card = Briefings.For(_dir.PendingUnlock);
+                _briefRibbon.text = "NEW TODAY";
+                _briefTitle.text = card.Title;
 
-            // Warning, consequence, recovery - always in that order, always all three.
-            _briefBody.text = card.Warning
-                            + "\n\n" + card.Consequence
-                            + "\n\n" + card.Recovery;
+                // Warning, consequence, recovery - in that order, always all three.
+                _briefBody.text = card.Warning
+                                + "\n\n" + card.Consequence
+                                + "\n\n" + card.Recovery;
+            }
+            else
+            {
+                var mod = DayModifiers.Describe(_dir.Today.Mod);
+                _briefRibbon.text = "JUST FOR TODAY";
+                _briefTitle.text = mod.Title;
+                _briefBody.text = mod.Body + "\n\n" + mod.Advice;
+            }
+
             _briefAction.text = GameInput.ConfirmGlyph + "   start day " + _dir.Day;
         }
 
@@ -1236,8 +1268,27 @@ namespace LaundryMonster
             UiKit.SetCardColors(_sprayChip, ready ? UiKit.Mint() : UiKit.Grey, UiKit.Navy);
         }
 
+        /// <summary>
+        /// The day's twist, kept on screen for as long as it is true.
+        ///
+        /// Hidden entirely on an ordinary day rather than showing "NORMAL", because a
+        /// chip that is always there is furniture and stops being read - the point is
+        /// that its presence is itself the signal.
+        /// </summary>
+        void UpdateModifierChip()
+        {
+            if (_modChip == null) return;
+
+            string label = DayModifiers.ShortName(_dir.Today.Mod);
+            bool show = !string.IsNullOrEmpty(label);
+            SetActive(_modChip.gameObject, show);
+            if (show) _modText.text = label;
+        }
+
         void UpdateObjective()
         {
+            UpdateModifierChip();
+
             bool teaching = _tutorial != null && _tutorial.Running;
             // Show the nudge on any day that is still teaching something, not only day one.
             bool dayOneHint = !teaching && _dir.FlashTimer <= 0f

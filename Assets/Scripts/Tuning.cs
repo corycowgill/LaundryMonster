@@ -218,7 +218,20 @@ namespace LaundryMonster
             return Mathf.Max(len * 0.34f, len - FinishWindow);
         }
 
-        /// <summary>Delivery target in points for the day.</summary>
-        public static float TargetForDay(int day) => GarmentsForDay(day) * 0.8f;
+        /// <summary>What share of the laundry that arrives has to be put away.</summary>
+        public const float TargetShare = 0.8f;
+
+        /// <summary>Delivery target in points for an unmodified day.</summary>
+        public static float TargetForDay(int day) => TargetForGarments(GarmentsForDay(day));
+
+        /// <summary>
+        /// Delivery target for a day that actually brings this many garments.
+        ///
+        /// Takes the count rather than the day, because a modifier can change how
+        /// much arrives. Derived from the day number instead, a quiet morning asked
+        /// for twenty-three points out of fourteen garments - a target that could
+        /// not be met by delivering every single thing perfectly.
+        /// </summary>
+        public static float TargetForGarments(int garments) => garments * TargetShare;
     }
 }

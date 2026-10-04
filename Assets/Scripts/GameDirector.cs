@@ -144,7 +144,17 @@ namespace LaundryMonster
         public bool IsRunning => CurrentPhase == Phase.Playing && !Paused;
 
         public bool AcceptsInput => CurrentPhase == Phase.Playing && !Paused;
-        public float Target => Tuning.TargetForDay(Day);
+        /// <summary>How many garments today actually brings, after any modifier.</summary>
+        public int GarmentsToday { get; private set; }
+
+        /// <summary>
+        /// Points needed to pass the day.
+        ///
+        /// Measured against what arrives TODAY, not against what an unmodified day
+        /// of this number would have brought - otherwise a modifier that reduces the
+        /// laundry leaves the target where it was and asks for more than exists.
+        /// </summary>
+        public float Target => Tuning.TargetForGarments(GarmentsToday) * Today.TargetScale;
         public float TimeLeft => Mathf.Max(0f, DayLength - DayTimer);
 
         /// <summary>No more laundry is coming; what is left is the finishing period.</summary>
@@ -152,6 +162,23 @@ namespace LaundryMonster
 
         /// <summary>The system being introduced on the briefing card, if one is up.</summary>
         public Tuning.Unlock PendingUnlock { get; private set; }
+
+        /// <summary>
+        /// What is different about today, and everything it changes.
+        ///
+        /// Read by the machines for their cycle times, by scoring for what a wrinkled
+        /// garment is worth, and by the HUD so the rule is never more than a glance away.
+        /// Always valid: outside the modifier days it is Plan.Normal, which changes
+        /// nothing, so no caller has to ask whether there is one.
+        /// </summary>
+        public DayModifiers.Plan Today { get; private set; } = DayModifiers.Plan.Normal;
+
+        /// <summary>
+        /// Seeds the order modifiers are dealt in, so two runs are not the same run.
+        /// Set once when a run starts and left alone, which keeps a day reproducible
+        /// within its own run - the day does not change shape because you paused.
+        /// </summary>
+        int _runSeed;
 
         /// <summary>Everything bought this run. Owned by the run, cleared when one starts.</summary>
         public readonly Upgrades Kit = new Upgrades();
@@ -183,6 +210,7 @@ namespace LaundryMonster
         {
             Kit.ResetForRun();
             Offered.Clear();
+            _runSeed = Random.Range(1, int.MaxValue);
             Monster = 0f;
             RunScore = 0f;
             RunDelivered = 0;
@@ -199,9 +227,19 @@ namespace LaundryMonster
             // there, so nothing ticks while the player reads it.
             Kit.BeginDay();
             PendingUnlock = Tuning.UnlockFor(day);
-            CurrentPhase = PendingUnlock == Tuning.Unlock.None ? Phase.Playing : Phase.Briefing;
+
+            // Today's twist. Modifiers only start once every system has been taught, so
+            // an unlock day and a modifier day can never be the same day and the player
+            // is never handed a new rule and a twist on it at once.
+            Today = DayModifiers.PlanFor(DayModifiers.For(day, _runSeed));
+
+            // Either a new system or a new twist opens on a card. IsRunning is false
+            // there, so nothing ticks while it is being read.
+            bool briefing = PendingUnlock != Tuning.Unlock.None
+                            || Today.Mod != DayModifiers.Modifier.None;
+            CurrentPhase = briefing ? Phase.Briefing : Phase.Playing;
             DayTimer = 0f;
-            DayLength = Tuning.DayLength(day);
+            DayLength = Tuning.DayLength(day) * Today.LengthScale;
             Score = 0f;
             BonusScore = 0f;
             CleanStreak = 0;
@@ -219,13 +257,29 @@ namespace LaundryMonster
 
             if (Hamper != null) Hamper.Waiting.Clear();
 
-            foreach (var m in Object.FindObjectsByType<LaundryMachine>())
+            // One dryer can be dead for the day. Always the LAST dryer rather than a
+            // random one, so the player learns where the dead machine will be instead of
+            // having to rediscover it, and because a dryer at the end of the row is a
+            // longer walk than one in the middle - the modifier should cost capacity, not
+            // cost the player a surprise halfway through a load.
+            int dryersToKill = Today.DryersOffline;
+            var machines = Object.FindObjectsByType<LaundryMachine>();
+            System.Array.Sort(machines, (a, b) => b.transform.position.x.CompareTo(a.transform.position.x));
+
+            foreach (var m in machines)
             {
                 m.Contents.Clear();
                 m.Running = false;
                 m.Timer = 0f;
                 m.OfflineTimer = 0f;          // a burnt dryer cools off overnight
+                m.OutOfOrder = false;
                 if (day == 1) m.Lint = 0;     // but lint is run-long debt
+
+                if (dryersToKill > 0 && m.MachineMode == LaundryMachine.Mode.Dryer)
+                {
+                    m.OutOfOrder = true;
+                    dryersToKill--;
+                }
             }
 
             foreach (var c in Object.FindObjectsByType<Chair>())
@@ -251,7 +305,8 @@ namespace LaundryMonster
                 st.ReadyPairs.Clear();
                 if (day == 1) st.Rags = 0;
             }
-            int count = Tuning.GarmentsForDay(day);
+            int count = Mathf.Max(1, Mathf.RoundToInt(Tuning.GarmentsForDay(day) * Today.CountScale));
+            GarmentsToday = count;
             // Arrivals stop one full pipeline before the end, so the last garment of the
             // day can actually be washed, dried, folded and delivered. What remains is the
             // finishing period.
@@ -629,7 +684,13 @@ namespace LaundryMonster
         /// </summary>
         GarmentKind RollKind()
         {
-            if (Tuning.SocksActive(Day)) return (GarmentKind)Random.Range(0, 5);
+            if (Tuning.SocksActive(Day))
+            {
+                // A sock avalanche tips the mix rather than replacing it, so the day is
+                // still recognisably a laundry day with far too many socks in it.
+                if (Today.SockBias > 0f && Random.value < Today.SockBias) return GarmentKind.Sock;
+                return (GarmentKind)Random.Range(0, 5);
+            }
 
             // Shirt, Pants, Towel, Delicate - every kind except Sock. Delicates have no
             // special handling yet, so they are an ordinary garment with a different mesh.
@@ -704,7 +765,9 @@ namespace LaundryMonster
 
         public void Deliver(Garment g)
         {
-            float basePoints = g.FoldedWrinkled ? Tuning.PointsWrinkled : Tuning.PointsClean;
+            // What a wrinkled delivery is worth is the day's business, not a constant:
+            // with a guest coming it is worth nothing at all.
+            float basePoints = g.FoldedWrinkled ? Today.WrinkledPoints : Tuning.PointsClean;
             Score += basePoints;
             Delivered++;
             _all.Remove(g);

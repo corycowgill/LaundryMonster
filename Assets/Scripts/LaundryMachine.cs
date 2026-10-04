@@ -59,7 +59,18 @@ namespace LaundryMonster
 
         /// <summary>Seconds this machine is unusable after a fire.</summary>
         public float OfflineTimer;
-        public bool Offline => OfflineTimer > 0f;
+
+        /// <summary>
+        /// Out of order for the whole day, which is a modifier rather than an accident.
+        ///
+        /// Kept apart from OfflineTimer because the two mean different things to the
+        /// player: a burnt-out dryer is something they did and will cool off, and a dead
+        /// one is a fact about today that no amount of waiting fixes. Sharing the timer
+        /// would have had the status line count down to a recovery that never came.
+        /// </summary>
+        public bool OutOfOrder;
+
+        public bool Offline => OfflineTimer > 0f || OutOfOrder;
 
         ProgressBar _bar;
         AudioSource _audio;
@@ -119,6 +130,7 @@ namespace LaundryMonster
         {
             get
             {
+                if (OutOfOrder) return "OUT OF ORDER";
                 if (Offline) return "BURNT OUT " + Mathf.CeilToInt(OfflineTimer) + "s";
 
                 string lint = MachineMode == Mode.Dryer && Lint > 0
@@ -384,6 +396,15 @@ namespace LaundryMonster
             _cycleLength = allWrinkled
                 ? Tuning.ReDryCycle
                 : (MachineMode == Mode.Washer ? Tuning.WashCycle : Tuning.DryCycle);
+
+            // The day can stretch or shorten a cycle: damp air on a rainy weekend, cheap
+            // electricity on a good one. Applied before the lint penalty, so a clogged
+            // dryer on a wet day is punished for both.
+            var dir = GameDirector.Instance;
+            if (dir != null)
+                _cycleLength *= MachineMode == Mode.Washer
+                    ? dir.Today.WashScale
+                    : dir.Today.DryScale;
 
             // A clogged dryer is slow, and eventually it is worse than slow.
             if (MachineMode == Mode.Dryer)

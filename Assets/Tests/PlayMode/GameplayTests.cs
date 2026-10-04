@@ -270,9 +270,32 @@ namespace LaundryMonster.Tests
             Assert.AreEqual(Tuning.Unlock.Lint, _dir.PendingUnlock);
             Assert.IsFalse(_dir.IsRunning, "the world should be frozen behind a briefing");
 
-            _dir.BeginDay(Tuning.DaySocks + 1);     // a day with nothing new
+            // A day with genuinely nothing new starts immediately. That is day one: from
+            // day six every day carries a modifier, so there is no quiet day after the
+            // tutorial any more.
+            _dir.BeginDay(1);
             yield return null;
             Assert.AreEqual(Phase.Playing, _dir.CurrentPhase);
+            Assert.AreEqual(DayModifiers.Modifier.None, _dir.Today.Mod);
+        }
+
+        [UnityTest]
+        public IEnumerator ADayWithAModifierOpensOnItsCardToo()
+        {
+            // The modifier is the day's rule, and a rule the player is not told is just
+            // the game behaving oddly. It gets the same card, and the same frozen world
+            // behind it, that a system unlock gets.
+            _dir.StartRun();
+            _dir.BeginDay(DayModifiers.FirstDay);
+            yield return null;
+
+            Assert.AreNotEqual(DayModifiers.Modifier.None, _dir.Today.Mod,
+                "the first modifier day arrived without a modifier");
+            Assert.AreEqual(Tuning.Unlock.None, _dir.PendingUnlock,
+                "a modifier day must never also be teaching a new system");
+            Assert.AreEqual(Phase.Briefing, _dir.CurrentPhase,
+                "the day's twist should be explained before the clock starts");
+            Assert.IsFalse(_dir.IsRunning, "the world should be frozen behind the card");
         }
 
         // ================= scoring =================
