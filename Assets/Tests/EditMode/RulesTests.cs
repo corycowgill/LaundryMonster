@@ -67,6 +67,38 @@ namespace LaundryMonster.Tests
             }
         }
 
+        // ---------- things the WebGL build cannot do ----------
+
+        [Test]
+        public void RuntimeCodeNeverCallsCreatePrimitive()
+        {
+            // The WebGL player has the physics module stripped, because nothing in the
+            // scene uses physics. GameObject.CreatePrimitive always tries to attach a
+            // collider, so in the build every call is an error - "Can't add component
+            // because class 'SphereCollider' doesn't exist" - twenty-one of them on the
+            // title screen when this was found. No runtime test can see it: they all run
+            // in the editor, where physics is always present. So the rule is checked at
+            // the source instead. Runtime primitives go through Prim.Make.
+            var root = System.IO.Path.Combine(UnityEngine.Application.dataPath, "Scripts");
+            var offenders = new System.Collections.Generic.List<string>();
+            foreach (var file in System.IO.Directory.GetFiles(root, "*.cs", System.IO.SearchOption.AllDirectories))
+            {
+                if (System.IO.Path.GetFileName(file) == "Prim.cs") continue;
+                var lines = System.IO.File.ReadAllLines(file);
+                for (int i = 0; i < lines.Length; i++)
+                {
+                    var line = lines[i].TrimStart();
+                    if (line.StartsWith("//")) continue;
+                    if (line.Contains("CreatePrimitive("))
+                        offenders.Add($"{System.IO.Path.GetFileName(file)}:{i + 1}");
+                }
+            }
+            Assert.IsEmpty(offenders,
+                "runtime code calls GameObject.CreatePrimitive, which errors in the WebGL "
+                + "build because the physics module is stripped - use Prim.Make: "
+                + string.Join(", ", offenders));
+        }
+
         // ---------- the shape of a day ----------
 
         [Test]
