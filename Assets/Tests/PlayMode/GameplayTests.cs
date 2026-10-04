@@ -347,6 +347,48 @@ namespace LaundryMonster.Tests
             }
         }
 
+        // ================= the Monster's reach =================
+
+        [UnityTest]
+        public IEnumerator TheMonsterVisiblyReachesDuringASnatchAndStopsAfter()
+        {
+            // The snatch is the one thing the Monster does on purpose, and the arm is
+            // its only telegraph that works without reading. It is found by name at
+            // runtime, which is exactly the kind of wiring that breaks silently: rename
+            // the pivot in MonsterArt and the Monster goes back to a four-degree lean
+            // while every other test stays green.
+            var pile = GameObject.Find("MonsterPile");
+            Assert.IsNotNull(pile, "no MonsterPile in the scene");
+            var anim = pile.GetComponent<MonsterAnimator>();
+            Assert.IsNotNull(anim, "the Monster has no animator");
+
+            Transform arm = null;
+            foreach (var t in pile.GetComponentsInChildren<Transform>(true))
+                if (t.name == "ArmPivot") { arm = t; break; }
+            Assert.IsNotNull(arm, "the Monster has no ArmPivot - MonsterAnimator finds it by this name");
+
+            float rest = MonsterArm.RestScale.x;
+            float reach = MonsterArm.ReachScale.x;
+            Assert.Less(rest, reach, "the arm has nowhere to reach to");
+
+            // At rest, tucked in.
+            yield return null;
+            Assert.AreEqual(rest, arm.localScale.x, 0.05f, "the arm is not tucked in at rest");
+
+            // Halfway through a three-second warning it should be well on its way out.
+            anim.Reach(3f);
+            float t0 = Time.time;
+            while (Time.time - t0 < 1.5f) yield return null;
+            Assert.Greater(arm.localScale.x, rest + (reach - rest) * 0.5f,
+                $"1.5s into a 3s snatch the arm is at {arm.localScale.x:0.00}, barely past rest {rest:0.00}");
+
+            // And once the warning is over it goes back.
+            t0 = Time.time;
+            while (Time.time - t0 < 2.5f) yield return null;
+            Assert.Less(arm.localScale.x, rest + (reach - rest) * 0.2f,
+                $"well after the snatch the arm is still out at {arm.localScale.x:0.00}");
+        }
+
         // ================= the game-over card =================
 
         [UnityTest]

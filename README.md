@@ -71,7 +71,7 @@ A test that cannot fail is not a test.
 | Unity | 6000.6.3f1 |
 | Render pipeline | URP 17.6 (template `com.unity.template.urp-blank`) |
 | Target | WebGL |
-| UI stack | uGUI + TextMeshPro (world-space HUD over machines; UI Toolkit has no world-space) |
+| UI stack | uGUI with legacy `Text` and procedurally generated sprites - no TextMeshPro, no imported UI art |
 | Extra packages | none — the template covers it, which keeps the WebGL build small |
 
 ## Working on it
@@ -86,10 +86,27 @@ unity command eval --code '...'    # run C# against the live Editor
 Post-processing lives on `Assets/Settings/LaundryMonster_PostFX.asset`, driven by the
 `Global Volume` in the scene.
 
+`eval` is capped at five seconds of main-thread time. Anything heavier - rebuilding the
+room, building the player, surveying the walls - is a menu item instead, under
+**Laundry Monster** in the Editor menu:
+
+| Menu item | What it does |
+|---|---|
+| Build Room | regenerates the whole scene from code (`RoomBuilder`) |
+| Build WebGL | the player build; `publish-deploy.sh` then pushes it to the `deploy` branch |
+| Preview Monster (angry / calm) | poses the Monster at full size with its face and arm out, without playing a bad day to get there |
+| Survey Walls | which patches of wall the gameplay camera can see, clear of the HUD and of props |
+| Sweep Poster Slots | scores every poster position along both side walls at three screen shapes |
+| Check Poster Visibility | scores each poster as built, and names whatever is standing in front of it |
+
+The survey tools exist because the walls are seen so obliquely that intuition about
+them is wrong: the back wall sits entirely under the objective card, and the near end
+of the side walls is off-frame on any screen narrower than a phone held sideways.
+
 ## Conventions
 
 - Never hand-edit `.unity` / `.prefab` / `.asset` YAML while an Editor is running — drive
   the live Editor instead.
-- No `OnGUI`. HUD is uGUI + TextMeshPro.
+- No `OnGUI`. HUD is uGUI with legacy `Text`.
 - URP shader names only (`Universal Render Pipeline/Lit`, etc.). `Standard` renders pink.
 - Commit `.cs` and assets together with their `.meta` files. `Library/` is never committed.
