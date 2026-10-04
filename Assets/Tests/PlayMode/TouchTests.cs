@@ -306,6 +306,96 @@ namespace LaundryMonster.Tests
                 + "lifted is still being counted on every frame the slot reports Ended");
         }
 
+        [UnityTest]
+        public IEnumerator TapsKeepWorkingAfterTheSlotHasBeenLeftSittingInEnded()
+        {
+            // "None of the iPhone touch controls work."
+            //
+            // A touch slot does not reset when a finger lifts: it sits in Ended until the
+            // next input update, and with nobody touching the screen there is no next
+            // input update. The previous fix answered the repeating-action bug by acting
+            // once per finger and releasing the claim when the slot stopped reporting
+            // that finger - which that slot never does. So the claim was never released,
+            // and because iOS hands the same touch id to the next finger, every touch
+            // after the first was treated as one already dealt with.
+            //
+            // One tap works; the device is then dead. This is that, in six frames.
+            _dir.StartRun();
+            _dir.CurrentPhase = Phase.Playing;
+
+            var hero = Object.FindAnyObjectByType<PlayerController>();
+            if (hero != null) hero.enabled = false;
+
+            yield return null;
+            var act = ActButtonCentre();
+            GameInput.InteractPressed();
+
+            // First tap.
+            int first = 0;
+            Finger(81, UnityEngine.InputSystem.TouchPhase.Began, act);
+            yield return null;
+            if (GameInput.InteractPressed()) first++;
+            Finger(81, UnityEngine.InputSystem.TouchPhase.Ended, act);
+            yield return null;
+            if (GameInput.InteractPressed()) first++;
+
+            // Nothing happens for a while. The slot keeps saying Ended.
+            for (int i = 0; i < 3; i++)
+            {
+                yield return null;
+                GameInput.InteractPressed();
+            }
+
+            // Second tap, on the same touch id, exactly as a phone reuses them.
+            int second = 0;
+            Finger(81, UnityEngine.InputSystem.TouchPhase.Began, act);
+            yield return null;
+            if (GameInput.InteractPressed()) second++;
+            Finger(81, UnityEngine.InputSystem.TouchPhase.Ended, act);
+            yield return null;
+            if (GameInput.InteractPressed()) second++;
+
+            if (hero != null) hero.enabled = true;
+
+            Assert.AreEqual(1, first, $"the first tap gave {first} interactions, wanted 1");
+            Assert.AreEqual(1, second,
+                $"the second tap gave {second} interactions - after one touch the controls "
+                + "are dead, which is every button on the device not working");
+        }
+
+        [UnityTest]
+        public IEnumerator TheStickStillSteersAfterATapElsewhere()
+        {
+            // The stick shares the same slot bookkeeping, and a control scheme where
+            // walking stops working is not a smaller bug than one where tapping does.
+            _dir.StartRun();
+            _dir.CurrentPhase = Phase.Playing;
+            yield return null;
+
+            // A tap on the right, then a drag on the left.
+            Finger(83, UnityEngine.InputSystem.TouchPhase.Began, ActButtonCentre());
+            yield return null;
+            Finger(83, UnityEngine.InputSystem.TouchPhase.Ended, ActButtonCentre());
+            yield return null;
+            yield return null;
+
+            var start = new Vector2(Screen.width * 0.2f, Screen.height * 0.4f);
+            Finger(84, UnityEngine.InputSystem.TouchPhase.Began, start);
+            yield return null;
+            Finger(84, UnityEngine.InputSystem.TouchPhase.Moved, start + new Vector2(140f, 0f));
+            yield return null;
+            yield return null;
+
+            Assert.Greater(GameInput.Move.sqrMagnitude, 0.05f,
+                "dragging the stick after an earlier tap moved the hero not at all");
+
+            Finger(84, UnityEngine.InputSystem.TouchPhase.Ended, start + new Vector2(140f, 0f));
+            yield return null;
+            yield return null;
+            Assert.Less(GameInput.Move.sqrMagnitude, 0.01f,
+                "the hero kept walking after the thumb came off the stick");
+        }
+
         /// <summary>Where TouchControls has actually put the ACT button, in screen pixels.</summary>
         Vector2 ActButtonCentre()
         {
