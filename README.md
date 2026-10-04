@@ -45,25 +45,35 @@ Controls adapt to the device you are using, and the HUD names the right button.
 
 ## Tests
 
-29 regression tests, all green. Every one exists because something was broken once.
+61 regression tests, all green. Every one exists because something was broken once.
 
 ```
-unity command run_tests --mode EditMode                  # 17 tests, ~3s
-unity command run_tests --mode PlayMode --async_tests    # 12 tests, ~3s
+unity command run_tests --mode EditMode                  # 27 tests, ~10s
+unity command run_tests --mode PlayMode --async_tests    # 34 tests, ~90s
 unity command test_status                                # poll the PlayMode run
 ```
 
 PlayMode must run async: entering play mode triggers a domain reload that drops a
-synchronous request.
+synchronous request. The runner briefly creates `Assets/InitTestScene*.unity`; stage
+files by name rather than `git add -A` straight after a run.
 
 | suite | covers |
 |---|---|
-| `Assets/Tests/EditMode` | the teaching schedule, the shape of a day, the upgrade kit, briefing copy, scoring invariants |
-| `Assets/Tests/PlayMode` | machine unloading, one-slot sock matching, phase freezing, the day-boundary charge, run resets |
+| `Assets/Tests/EditMode` | the teaching schedule, the shape of a day under every modifier, the upgrade kit, briefing copy, scoring invariants, modifier dealing (no repeats, no modifier on a tutorial day, a reachable target), and a source-level guard against `CreatePrimitive` in runtime code |
+| `Assets/Tests/PlayMode` | machine unloading, one-slot sock matching, phase freezing, the day-boundary charge, run resets, the game-over card, the Monster's reach, the dead dryer's prompt, tomorrow's forecast, continuing a run from either checkpoint, the HUD layout at five aspects, and the touch path from a simulated finger on the glass: quick taps, lingering slots, held ACT, the stick |
 
-The suite is checked against a deliberately reintroduced bug: restoring the old
-state-derived `HasFinishedLoad` fails exactly the two unloading tests, and nothing else.
-A test that cannot fail is not a test.
+**Every regression test is proven against its bug before it is trusted.** The bug is
+put back - the guard removed, the lookup name broken, the seed restore deleted - and
+the suite is run again; exactly that one test must fail, with the message it was
+written to give, and nothing else. Several tests here were rewritten because that step
+showed they passed with the bug present: a resume test that never scrambled the seed it
+claimed to restore, an arrival-window test that checked only the pipeline and not the
+walking allowance. A test that cannot fail is not a test.
+
+The one class of failure no test here can see is a WebGL-only one: the player build
+strips the physics module, and the editor never does. For those, serve `Builds/WebGL`
+with `python -m http.server` and read the browser console. That is how twenty-one
+collider errors on the title screen were found after every test had passed.
 
 ## Project facts
 
@@ -111,3 +121,10 @@ of the side walls is off-frame on any screen narrower than a phone held sideways
 - No `OnGUI`. HUD is uGUI with legacy `Text`.
 - URP shader names only (`Universal Render Pipeline/Lit`, etc.). `Standard` renders pink.
 - Commit `.cs` and assets together with their `.meta` files. `Library/` is never committed.
+- Runtime code never calls `GameObject.CreatePrimitive`; it uses `Prim.Make`. The WebGL
+  player has no physics module, so a primitive's collider cannot be added there. An
+  EditMode test enforces this.
+- A new regression test is not done until the bug has been reintroduced and the test
+  is the only one that fails.
+- Every push to `main` is followed by a WebGL build and `publish-deploy.sh`, so the
+  `deploy` branch always carries the player for `main`'s head.
