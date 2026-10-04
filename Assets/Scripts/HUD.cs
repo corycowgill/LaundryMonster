@@ -567,7 +567,7 @@ namespace LaundryMonster
             if (_badges.Count > 0) return;
 
             _machines.Clear();
-            _machines.AddRange(Object.FindObjectsByType<LaundryMachine>(FindObjectsSortMode.None));
+            _machines.AddRange(Object.FindObjectsByType<LaundryMachine>());
             _machines.Sort((a, b) => a.transform.position.x.CompareTo(b.transform.position.x));
 
             foreach (var m in _machines)

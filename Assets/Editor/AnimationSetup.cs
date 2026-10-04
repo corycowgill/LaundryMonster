@@ -160,8 +160,7 @@ namespace LaundryMonster.EditorTools
             if (ctrl == null) return 0;
 
             int n = 0;
-            foreach (var anim in Object.FindObjectsByType<Animator>(FindObjectsInactive.Include,
-                                                                   FindObjectsSortMode.None))
+            foreach (var anim in Object.FindObjectsByType<Animator>(FindObjectsInactive.Include))
             {
                 // Only ours: anything else in the scene keeps whatever it had.
                 if (anim.GetComponentInParent<PlayerController>() == null) continue;

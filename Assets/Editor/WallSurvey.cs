@@ -64,7 +64,7 @@ public static class WallSurvey
             | System.Reflection.BindingFlags.Public);
 
         var rends = new System.Collections.Generic.List<Renderer>();
-        foreach (var r in Object.FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None))
+        foreach (var r in Object.FindObjectsByType<MeshRenderer>())
         {
             var n = r.gameObject.name;
             if (!r.enabled || !r.gameObject.activeInHierarchy) continue;
@@ -146,7 +146,7 @@ public static class WallSurvey
             | System.Reflection.BindingFlags.Public);
 
         var sheets = new System.Collections.Generic.List<Transform>();
-        foreach (var t in Object.FindObjectsByType<Transform>(FindObjectsSortMode.None))
+        foreach (var t in Object.FindObjectsByType<Transform>())
         {
             if (!t.name.StartsWith("Poster_")) continue;
             var sh = t.Find("Sheet");
@@ -268,7 +268,7 @@ public static class WallSurvey
 
         // Props are built without colliders, so a physics ray would sail through all of
         // them. Walk the renderers instead and test their bounds against the segment.
-        foreach (var r in Object.FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None))
+        foreach (var r in Object.FindObjectsByType<MeshRenderer>())
         {
             if (!r.enabled || !r.gameObject.activeInHierarchy) continue;
             var n = r.gameObject.name;

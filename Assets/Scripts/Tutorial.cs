@@ -134,7 +134,7 @@ namespace LaundryMonster
 
         bool AnyMachine(LaundryMachine.Mode mode, System.Func<LaundryMachine, bool> test)
         {
-            foreach (var m in Object.FindObjectsByType<LaundryMachine>(FindObjectsSortMode.None))
+            foreach (var m in Object.FindObjectsByType<LaundryMachine>())
                 if (m.MachineMode == mode && test(m)) return true;
             return false;
         }
@@ -168,7 +168,7 @@ namespace LaundryMonster
 
         Transform FirstMachine(LaundryMachine.Mode mode)
         {
-            foreach (var m in Object.FindObjectsByType<LaundryMachine>(FindObjectsSortMode.None))
+            foreach (var m in Object.FindObjectsByType<LaundryMachine>())
                 if (m.MachineMode == mode) return m.transform;
             return null;
         }
