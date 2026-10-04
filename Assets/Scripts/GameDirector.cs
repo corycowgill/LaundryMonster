@@ -79,6 +79,7 @@ namespace LaundryMonster
         {
             if (CurrentPhase == Phase.RunOver) return;
             CurrentPhase = Phase.RunOver;
+            RunSave.Clear();
             SfxPlayer.Play(Sfx.RunOver, 1f);
 
             // The day in progress still counts toward the run.
@@ -218,6 +219,9 @@ namespace LaundryMonster
         /// <summary>Start a brand new run from the title screen.</summary>
         public void StartRun()
         {
+            // A new run is a decision to abandon the old one.
+            RunSave.Clear();
+
             Kit.ResetForRun();
             Offered.Clear();
             _runSeed = Random.Range(1, int.MaxValue);
@@ -326,6 +330,94 @@ namespace LaundryMonster
             float window = Tuning.ArrivalWindow(DayLength, Today.WashScale, Today.DryScale);
             for (int i = 0; i < count; i++)
                 _spawnTimes.Add(window * (i / (float)Mathf.Max(1, count - 1)));
+
+            // The checkpoint. Everything above is now the state of "the start of this
+            // day", which is exactly what a resume puts back.
+            if (day >= 2) SaveRun();
+        }
+
+        // ---------- continue ----------
+
+        /// <summary>Is there a run to pick up from the title screen?</summary>
+        public bool HasSavedRun => RunSave.Exists;
+
+        /// <summary>The day that run would resume on.</summary>
+        public int SavedDay => RunSave.SavedDay;
+
+        /// <summary>
+        /// Dryers in the order the save stores their lint: right to left, which is also
+        /// the order BeginDay walks them to pick the dead one.
+        /// </summary>
+        LaundryMachine[] DryersRightToLeft()
+        {
+            var all = Object.FindObjectsByType<LaundryMachine>();
+            var list = new List<LaundryMachine>();
+            foreach (var m in all) if (m.MachineMode == LaundryMachine.Mode.Dryer) list.Add(m);
+            list.Sort((a, b) => b.transform.position.x.CompareTo(a.transform.position.x));
+            return list.ToArray();
+        }
+
+        void SaveRun()
+        {
+            var d = new RunSave.Data
+            {
+                day = Day,
+                seed = _runSeed,
+                monster = Monster,
+                runScore = RunScore,
+                runDelivered = RunDelivered,
+                runStars = RunStars,
+                voidedSocks = VoidedSocks,
+                nextPairId = _nextPairId,
+            };
+
+            var player = Object.FindAnyObjectByType<PlayerController>();
+            d.carryPenalty = player != null ? player.CarryPenalty : 0;
+
+            var dryers = DryersRightToLeft();
+            d.dryerLint = new int[dryers.Length];
+            for (int i = 0; i < dryers.Length; i++) d.dryerLint[i] = dryers[i].Lint;
+
+            var owned = new List<int>();
+            foreach (var id in Kit.Owned) owned.Add((int)id);
+            d.owned = owned.ToArray();
+
+            RunSave.Save(d);
+        }
+
+        /// <summary>
+        /// Pick the saved run back up at the start of its day. Falls back to a fresh run
+        /// if there is nothing to pick up, so the title's primary action always does
+        /// something.
+        /// </summary>
+        public void ContinueRun()
+        {
+            var d = RunSave.Load();
+            if (d == null) { StartRun(); return; }
+
+            Kit.ResetForRun();
+            foreach (var id in d.owned) Kit.Grant((UpgradeId)id);
+            Offered.Clear();
+
+            _runSeed = d.seed;
+            Monster = d.monster;
+            RunScore = d.runScore;
+            RunDelivered = d.runDelivered;
+            RunStars = d.runStars;
+            NewRecord = false;
+            VoidedSocks = d.voidedSocks;
+            _nextPairId = d.nextPairId;
+
+            var player = Object.FindAnyObjectByType<PlayerController>();
+            if (player != null) player.CarryPenalty = d.carryPenalty;
+
+            // Lint goes on BEFORE BeginDay: a day past the first leaves lint alone, and
+            // BeginDay writes the checkpoint, which has to see the restored traps.
+            var dryers = DryersRightToLeft();
+            for (int i = 0; i < dryers.Length && i < d.dryerLint.Length; i++)
+                dryers[i].Lint = d.dryerLint[i];
+
+            BeginDay(d.day);
         }
 
         void Update()
@@ -356,6 +448,7 @@ namespace LaundryMonster
                 case Phase.Title:
                     if (go) TitleConfirm();
                     else if (help) CurrentPhase = Phase.Help;
+                    else if (NewRunPressed() && HasSavedRun) StartRun();
                     else if (TutorialPressed()) StartTutorial();
                     else if (CreditsPressed()) OpenCredits();
                     break;
@@ -407,11 +500,32 @@ namespace LaundryMonster
                     case 1: StartTutorial(); return;
                     case 2: CurrentPhase = Phase.Help; return;
                     case 3: OpenCredits(); return;
+                    case 4: ContinueRun(); return;
                     case 0: StartRun(); return;
-                    default: StartRun(); return;   // a tap anywhere else still starts
+                    default: TitlePrimary(); return;   // a tap anywhere else still goes
                 }
             }
-            StartRun();
+            TitlePrimary();
+        }
+
+        /// <summary>
+        /// What SPACE, (A) and a stray tap mean on the title: carry on if there is a
+        /// run to carry on, otherwise start one. Starting over while a save exists is a
+        /// deliberate act with its own button and key.
+        /// </summary>
+        void TitlePrimary()
+        {
+            if (HasSavedRun) ContinueRun();
+            else StartRun();
+        }
+
+        /// <summary>N, or (X) on a pad: start a new run even though one is saved.</summary>
+        static bool NewRunPressed()
+        {
+            var kb = UnityEngine.InputSystem.Keyboard.current;
+            if (kb != null && kb.nKey.wasPressedThisFrame) return true;
+            var gp = UnityEngine.InputSystem.Gamepad.current;
+            return gp != null && gp.buttonWest.wasPressedThisFrame;
         }
 
         void OpenCredits()

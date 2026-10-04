@@ -20,6 +20,9 @@ namespace LaundryMonster.Tests
         GameDirector _dir;
         PlayerController _player;
 
+        [TearDown]
+        public void ForgetAnySavedRun() => RunSave.Clear();
+
         [UnitySetUp]
         public IEnumerator LoadTheRoom()
         {
@@ -387,6 +390,108 @@ namespace LaundryMonster.Tests
             while (Time.time - t0 < 2.5f) yield return null;
             Assert.Less(arm.localScale.x, rest + (reach - rest) * 0.2f,
                 $"well after the snatch the arm is still out at {arm.localScale.x:0.00}");
+        }
+
+        // ================= continuing a run =================
+
+        [UnityTest]
+        public IEnumerator AResumedRunIsTheRunYouLeft()
+        {
+            // The checkpoint is the start of a day. Everything that defines a run at
+            // that moment - the day, the kit, the Monster, the lint, the score, and the
+            // seed the modifiers are dealt from - has to come back exactly, or the
+            // player resumes into a run that is subtly not theirs. The seed is the one
+            // most easily forgotten and the one with the widest consequences: lose it
+            // and every remaining day's modifier changes.
+            _dir.StartRun();
+            _dir.Kit.Grant(UpgradeId.Basket);
+            _dir.Monster = 12.5f;
+            _dir.RunScore = 41f;
+            _dir.RunDelivered = 37;
+            _dir.RunStars = 5;
+            _dir.VoidedSocks = 3;
+            _player.CarryPenalty = 1;
+            var dryer = FindMachine(LaundryMachine.Mode.Dryer);
+            dryer.Lint = 5;
+
+            _dir.BeginDay(7);                       // writes the checkpoint
+            var day = _dir.Day;
+            var modifier = _dir.Today.Mod;
+            var forecast = _dir.Tomorrow;
+            Assert.IsTrue(_dir.HasSavedRun, "a day past the first should leave a save");
+            Assert.AreEqual(7, _dir.SavedDay);
+
+            // Wreck the live state, as a reload would - INCLUDING the seed, which is
+            // private. Without scrambling it, a resume that forgot the seed would still
+            // pass, because the seed it forgot was still sitting in the live object.
+            var seedField = typeof(GameDirector).GetField("_runSeed",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            int savedSeed = (int)seedField.GetValue(_dir);
+            seedField.SetValue(_dir, savedSeed + 977);
+            _dir.Kit.ResetForRun();
+            _dir.Monster = 0f;
+            _dir.RunScore = 0f;
+            _dir.RunDelivered = 0;
+            _dir.RunStars = 0;
+            _dir.VoidedSocks = 0;
+            _player.CarryPenalty = 0;
+            dryer.Lint = 0;
+            _dir.Day = 1;
+            yield return null;
+
+            _dir.ContinueRun();
+            yield return null;
+
+            Assert.AreEqual(day, _dir.Day, "resumed on the wrong day");
+            Assert.AreEqual(savedSeed, (int)seedField.GetValue(_dir),
+                "the run seed was not restored - every remaining day's modifier would change");
+            Assert.AreEqual(modifier, _dir.Today.Mod, "the day's modifier changed on resume - the seed was not restored");
+            Assert.AreEqual(forecast, _dir.Tomorrow, "tomorrow's forecast changed on resume");
+            Assert.IsTrue(_dir.Kit.Has(UpgradeId.Basket), "the kit did not come back");
+            Assert.AreEqual(12.5f, _dir.Monster, 0.001f, "the Monster's anger did not come back");
+            Assert.AreEqual(41f, _dir.RunScore, 0.001f);
+            Assert.AreEqual(37, _dir.RunDelivered);
+            Assert.AreEqual(5, _dir.RunStars);
+            Assert.AreEqual(3, _dir.VoidedSocks);
+            Assert.AreEqual(1, _player.CarryPenalty, "the AirPods loss did not come back");
+            Assert.AreEqual(5, dryer.Lint, "the lint did not come back");
+            Assert.IsTrue(_dir.HasSavedRun, "resuming should leave the checkpoint in place");
+        }
+
+        [UnityTest]
+        public IEnumerator LosingTheRunForgetsIt()
+        {
+            _dir.StartRun();
+            _dir.BeginDay(3);
+            Assert.IsTrue(_dir.HasSavedRun);
+
+            _dir.EndRun();
+            yield return null;
+
+            Assert.IsFalse(_dir.HasSavedRun, "a lost run is still offered on the title");
+        }
+
+        [UnityTest]
+        public IEnumerator StartingOverDiscardsTheOldRun()
+        {
+            _dir.StartRun();
+            _dir.BeginDay(4);
+            Assert.IsTrue(_dir.HasSavedRun);
+
+            _dir.StartRun();
+            yield return null;
+
+            Assert.IsFalse(_dir.HasSavedRun, "a new run should abandon the saved one");
+            Assert.AreEqual(1, _dir.Day);
+        }
+
+        [UnityTest]
+        public IEnumerator DayOneIsNeverACheckpoint()
+        {
+            // There is nothing to resume on day one that a fresh run does not give you.
+            _dir.StartRun();
+            yield return null;
+            Assert.IsFalse(_dir.HasSavedRun, "a run that has only just started was saved");
         }
 
         // ================= the game-over card =================

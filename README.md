@@ -27,6 +27,7 @@ Verified in Play mode, not assumed.
 | pause | working - Esc/P, Start, or the on-screen button; the world stops |
 | closing penalty | working - unfinished laundry feeds the Monster at the end of the day |
 | daily modifiers (day 6+) | working - six twists dealt from a shuffled bag, each changing the shape of a day rather than its size |
+| continue a run | working - a checkpoint at the start of every day from day two; the title offers CONTINUE DAY N beside NEW RUN |
 | darks/whites separation | not built |
 | audio | working - synthesised in code, no sound files |
 | art | one chunky procedural style - every prop and the Monster built from rounded boxes; TRELLIS model for the hero; FLUX textures; wall posters generated with ChatGPT |

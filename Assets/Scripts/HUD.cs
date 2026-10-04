@@ -91,6 +91,12 @@ namespace LaundryMonster
         Text _frontTagline, _frontHeading, _frontBody;
         readonly List<RectTransform> _titleButtons = new List<RectTransform>();
         readonly List<Rect> _titleButtonRects = new List<Rect>();
+        // The caption and the keycap of each, kept by index. The card builds its own
+        // children before the caption is added, so "first child is the label" is not
+        // true, and a relabel that guessed by child index changed nothing.
+        readonly List<Text> _titleLabels = new List<Text>();
+        readonly List<RectTransform> _titleCaps = new List<RectTransform>();
+        readonly List<Text> _titleCapTexts = new List<Text>();
         Text _bestDay, _bestScore, _bestDelivered;
         RectTransform _bestCard;
 
@@ -731,6 +737,14 @@ namespace LaundryMonster
             TitleButton(0, "START LAUNDRY", GameInput.ConfirmGlyph, UiKit.Yellow, UiKit.Navy,
                         new Vector2(68f, 458f), new Vector2(820f, 104f), 48);
 
+            // Continue. Shares the START row: when there is a run to pick up the row
+            // splits into CONTINUE DAY N and NEW RUN, and when there is not, START keeps
+            // the whole row and nothing on the title moves. Built hidden; the layout is
+            // decided every frame in LayoutTitleRow.
+            TitleButton(4, "CONTINUE", GameInput.ConfirmGlyph, UiKit.Yellow, UiKit.Navy,
+                        new Vector2(68f, 458f), new Vector2(395f, 104f), 34);
+            SetActive(_titleButtons[4].gameObject, false);
+
             _frontTagline = Head(_front.transform, "", 36, TextAnchor.LowerLeft, UiKit.Cream);
             UiKit.Place(_frontTagline.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 0f),
                         new Vector2(74f, 582f), new Vector2(900f, 50f));
@@ -773,16 +787,104 @@ namespace LaundryMonster
             label.rectTransform.offsetMin = new Vector2(24f, 0f);
             label.rectTransform.offsetMax = new Vector2(-120f, 0f);
 
+            RectTransform capRt = null;
             if (!string.IsNullOrEmpty(key))
             {
-                var cap = Keycap(card, key, Mathf.Max(70f, 34f + key.Length * 20f), size.y - 30f);
-                UiKit.Place(cap, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
-                            new Vector2(-18f, 0f), cap.sizeDelta);
+                capRt = Keycap(card, key, Mathf.Max(70f, 34f + key.Length * 20f), size.y - 30f);
+                UiKit.Place(capRt, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
+                            new Vector2(-18f, 0f), capRt.sizeDelta);
             }
 
-            while (_titleButtons.Count <= index) { _titleButtons.Add(null); _titleButtonRects.Add(default); }
+            while (_titleButtons.Count <= index)
+            {
+                _titleButtons.Add(null); _titleButtonRects.Add(default);
+                _titleLabels.Add(null); _titleCaps.Add(null); _titleCapTexts.Add(null);
+            }
             _titleButtons[index] = card;
             _titleButtonRects[index] = new Rect(pos.x, pos.y, size.x, size.y);
+            _titleLabels[index] = label;
+            _titleCaps[index] = capRt;
+            _titleCapTexts[index] = capRt != null ? capRt.GetComponentInChildren<Text>() : null;
+        }
+
+        /// <summary>
+        /// The START row, in its two shapes.
+        ///
+        /// With a saved run: CONTINUE DAY N on the left, carrying SPACE because resuming
+        /// is what a player who was mid-run almost always wants, and NEW RUN on the
+        /// right under its own key, because starting over should be a deliberate act.
+        /// Without one: START LAUNDRY across the whole row, exactly as before.
+        ///
+        /// The hit rectangles move with the buttons; a tap finds buttons by rectangle.
+        /// </summary>
+        void LayoutTitleRow(bool hasSave)
+        {
+            if (_titleButtons.Count < 5 || _titleButtons[0] == null || _titleButtons[4] == null) return;
+            var start = _titleButtons[0];
+            var cont = _titleButtons[4];
+
+            SetActive(cont.gameObject, hasSave);
+            var bl = new Vector2(0f, 0f);
+
+            if (hasSave)
+            {
+                var left = new Vector2(68f, 458f);
+                var right = new Vector2(493f, 458f);
+                var half = new Vector2(395f, 104f);
+
+                UiKit.Place(cont, bl, bl, left, half);
+                _titleButtonRects[4] = new Rect(left.x, left.y, half.x, half.y);
+                SetTitleButtonText(4, "CONTINUE DAY " + _dir.SavedDay, GameInput.ConfirmGlyph, 28, half.y);
+
+                UiKit.Place(start, bl, bl, right, half);
+                _titleButtonRects[0] = new Rect(right.x, right.y, half.x, half.y);
+                SetTitleButtonText(0, "NEW RUN", NewRunGlyph(), 32, half.y);
+            }
+            else
+            {
+                var pos = new Vector2(68f, 458f);
+                var full = new Vector2(820f, 104f);
+                UiKit.Place(start, bl, bl, pos, full);
+                _titleButtonRects[0] = new Rect(pos.x, pos.y, full.x, full.y);
+                SetTitleButtonText(0, "START LAUNDRY", GameInput.ConfirmGlyph, 48, full.y);
+            }
+        }
+
+        static string NewRunGlyph() => GameInput.Active switch
+        {
+            GameInput.Scheme.Gamepad => "(X)",
+            GameInput.Scheme.Touch => "TAP",
+            _ => "N",
+        };
+
+        /// <summary>
+        /// Relabel a title button, and resize its keycap for the key it now shows - a
+        /// cap sized for SPACE is twice as wide as one for N, and the caption's room is
+        /// whatever the cap leaves it.
+        /// </summary>
+        void SetTitleButtonText(int index, string caption, string key, int fontSize, float height)
+        {
+            if (index >= _titleLabels.Count) return;
+            var label = _titleLabels[index];
+            var cap = _titleCaps[index];
+            var capText = _titleCapTexts[index];
+
+            float capWidth = Mathf.Max(70f, 34f + key.Length * 20f);
+            if (cap != null)
+            {
+                var want = new Vector2(capWidth, height - 30f);
+                if (cap.sizeDelta != want) cap.sizeDelta = want;
+            }
+            if (capText != null && capText.text != key) capText.text = key;
+
+            if (label != null)
+            {
+                if (label.text != caption) label.text = caption;
+                if (label.fontSize != fontSize) label.fontSize = fontSize;
+                // Clear of the cap on the right; the left inset matches TitleButton.
+                var right = new Vector2(-(capWidth + 30f), 0f);
+                if (label.rectTransform.offsetMax != right) label.rectTransform.offsetMax = right;
+            }
         }
 
         /// <summary>
@@ -790,7 +892,7 @@ namespace LaundryMonster
         ///
         /// Touch needs this because the game has no EventSystem - the on-screen controls
         /// read raw touches - so a tap cannot find a Button by itself.
-        /// 0 start, 1 tutorial, 2 help, 3 credits.
+        /// 0 start, 1 tutorial, 2 help, 3 credits, 4 continue.
         /// </summary>
         public int TitleButtonAt(Vector2 screenPoint)
         {
@@ -1667,6 +1769,7 @@ namespace LaundryMonster
 
             SetActive(_bestCard.gameObject, !help);
             foreach (var b in _titleButtons) if (b != null) SetActive(b.gameObject, !help);
+            LayoutTitleRow(!help && _dir != null && _dir.HasSavedRun);
             SetActive(_frontTagline.gameObject, !help);
             SetActive(_frontHeading.gameObject, help);
             SetActive(_frontBody.gameObject, help);
